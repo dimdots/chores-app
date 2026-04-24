@@ -142,3 +142,47 @@ export async function assignTaskAction(input: {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
 }
+
+/**
+ * Bulk-create TaskDefinitions from the preset picker. Unlike the single-create
+ * action we intentionally DO NOT auto-assign these to today's board — dumping
+ * 20+ new tiles on the kid at once would be noisy and undo the point of
+ * presets as a catalog. Recurring presets will be materialized by the daily
+ * generator when relevant; one-offs (recurrenceType=NONE) sit as definitions
+ * until the parent assigns or the kid picks them up from the catalog.
+ */
+export async function createTasksFromPresetsAction(
+  items: Array<{
+    title: string;
+    description?: string | null;
+    categoryId: string;
+    points: number;
+  }>,
+): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  try {
+    const s = await assertParent();
+    if (!Array.isArray(items) || items.length === 0) {
+      return { ok: false, error: t.errors.validation };
+    }
+
+    let created = 0;
+    for (const item of items) {
+      await createTaskDefinition(
+        {
+          title: item.title,
+          description: item.description ?? null,
+          categoryId: item.categoryId,
+          points: item.points,
+          recurrenceType: "NONE",
+        },
+        s.userId,
+      );
+      created += 1;
+    }
+
+    revalidate();
+    return { ok: true, created };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}

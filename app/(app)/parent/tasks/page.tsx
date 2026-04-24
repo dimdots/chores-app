@@ -17,11 +17,18 @@ export default async function ParentTasksPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">{t.tasks.list}</h1>
-        <Link href="/parent/tasks/new">
-          <Button size="sm">{t.tasks.new}</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/parent/tasks/presets">
+            <Button size="sm" variant="secondary">
+              {t.tasks.presets}
+            </Button>
+          </Link>
+          <Link href="/parent/tasks/new">
+            <Button size="sm">{t.tasks.new}</Button>
+          </Link>
+        </div>
       </div>
 
       {tasks.length === 0 ? (
