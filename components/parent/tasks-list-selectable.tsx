@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DeleteTaskButton } from "@/components/parent/delete-task-button";
+import { CategoryGroup } from "@/components/shared/category-group";
 import { t } from "@/lib/i18n/ru";
 import { formatPoints } from "@/lib/utils/format";
 import { assignTasksBulkAction } from "@/app/(app)/parent/tasks/actions";
@@ -52,11 +53,23 @@ export function TasksListSelectable({
   const [pending, start] = useTransition();
 
   // Only active tasks can be assigned — archived ones shouldn't accept new
-  // AssignedTask rows. Filter them out of the selection pool entirely so the
-  // checkbox never appears next to an archived row.
+  // AssignedTask rows. The selection pool comes from this filter so the
+  // "select all" toggle can't accidentally include an archived row.
   const assignable = useMemo(() => tasks.filter((t) => t.isActive), [tasks]);
   const allSelected =
     assignable.length > 0 && assignable.every((t) => selected.has(t.id));
+
+  // Group by category, preserving the order the server returned them in
+  // (which is already sorted by isActive desc, then title asc inside
+  // listTaskDefinitions). First-seen category order becomes the render order.
+  const grouped = useMemo(() => {
+    const map = new Map<string, TaskRow[]>();
+    for (const row of tasks) {
+      if (!map.has(row.categoryName)) map.set(row.categoryName, []);
+      map.get(row.categoryName)!.push(row);
+    }
+    return Array.from(map.entries());
+  }, [tasks]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -109,49 +122,60 @@ export function TasksListSelectable({
         </div>
       ) : null}
 
-      <div className="space-y-2">
-        {tasks.map((task) => {
-          const selectable = canBulkAssign && task.isActive;
-          const isChecked = selected.has(task.id);
-          return (
-            <Card key={task.id} className="hover:shadow-float transition-shadow">
-              <CardContent className="flex items-center gap-3">
-                {selectable ? (
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggle(task.id)}
-                    aria-label={task.title}
-                    className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
-                  />
-                ) : null}
-                <Link
-                  href={`/parent/tasks/${task.id}`}
-                  className="flex-1 min-w-0 flex items-center gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900 truncate">{task.title}</p>
-                      {!task.isActive ? (
-                        <Badge tone="neutral">{t.tasks.inactive}</Badge>
-                      ) : null}
-                      {task.createdByRole === "CHILD" ? (
-                        <Badge tone="brand">{t.tasks.createdByChild}</Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {task.categoryName} · {recurrenceLabel(task.recurrenceType)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-brand-700 font-semibold">
-                    +{formatPoints(task.points)}
-                  </span>
-                </Link>
-                <DeleteTaskButton taskId={task.id} title={task.title} />
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="space-y-4">
+        {grouped.map(([category, rows]) => (
+          <CategoryGroup
+            key={category}
+            scope="parent-tasks"
+            category={category}
+            count={rows.length}
+          >
+            {rows.map((task) => {
+              const selectable = canBulkAssign && task.isActive;
+              const isChecked = selected.has(task.id);
+              return (
+                <Card key={task.id} className="hover:shadow-float transition-shadow">
+                  <CardContent className="flex items-center gap-3">
+                    {selectable ? (
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggle(task.id)}
+                        aria-label={task.title}
+                        className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
+                      />
+                    ) : null}
+                    <Link
+                      href={`/parent/tasks/${task.id}`}
+                      className="flex-1 min-w-0 flex items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900 truncate">
+                            {task.title}
+                          </p>
+                          {!task.isActive ? (
+                            <Badge tone="neutral">{t.tasks.inactive}</Badge>
+                          ) : null}
+                          {task.createdByRole === "CHILD" ? (
+                            <Badge tone="brand">{t.tasks.createdByChild}</Badge>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          {recurrenceLabel(task.recurrenceType)}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-brand-700 font-semibold">
+                        +{formatPoints(task.points)}
+                      </span>
+                    </Link>
+                    <DeleteTaskButton taskId={task.id} title={task.title} />
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </CategoryGroup>
+        ))}
       </div>
 
       {error ? <p className="text-sm text-danger-700">{error}</p> : null}
