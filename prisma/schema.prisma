@@ -21,8 +21,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon (and other PgBouncer-fronted Postgres) requires migrations to run
+  // against a non-pooled connection — the pooler rejects the advisory lock
+  // Prisma takes during `migrate deploy`. Runtime queries still go through
+  // DATABASE_URL (pooled); only `prisma migrate deploy` uses DIRECT_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
