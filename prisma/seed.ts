@@ -15,7 +15,7 @@
  */
 
 import { PrismaClient, RecurrenceType } from "@prisma/client";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import { DEFAULT_CATEGORIES, DEFAULT_TASKS, DEFAULT_REWARDS } from "../config/defaults";
 
 const prisma = new PrismaClient();
@@ -28,12 +28,7 @@ const SEED_CHILD_NAME = process.env.SEED_CHILD_NAME ?? "Ребёнок";
 const SEED_CHILD_DISPLAY_NAME = process.env.SEED_CHILD_DISPLAY_NAME ?? SEED_CHILD_NAME;
 const SEED_CHILD_PIN = process.env.SEED_CHILD_PIN ?? "123456";
 
-const ARGON_OPTS = {
-  type: argon2.argon2id,
-  memoryCost: 19456,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
+const BCRYPT_ROUNDS = 12;
 
 async function seedCategories() {
   for (const cat of DEFAULT_CATEGORIES) {
@@ -48,7 +43,7 @@ async function seedCategories() {
 async function seedParent(): Promise<string> {
   const existing = await prisma.user.findUnique({ where: { email: SEED_PARENT_EMAIL } });
   if (existing) return existing.id;
-  const passwordHash = await argon2.hash(SEED_PARENT_PASSWORD, ARGON_OPTS);
+  const passwordHash = await bcrypt.hash(SEED_PARENT_PASSWORD, BCRYPT_ROUNDS);
   const parent = await prisma.user.create({
     data: {
       role: "PARENT",
@@ -71,7 +66,7 @@ async function seedChild(): Promise<string> {
   if (!/^\d{6}$/.test(SEED_CHILD_PIN)) {
     throw new Error("SEED_CHILD_PIN must be exactly 6 digits");
   }
-  const pinHash = await argon2.hash(SEED_CHILD_PIN, ARGON_OPTS);
+  const pinHash = await bcrypt.hash(SEED_CHILD_PIN, BCRYPT_ROUNDS);
   const childUser = await prisma.user.create({
     data: {
       role: "CHILD",

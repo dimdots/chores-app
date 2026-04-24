@@ -7,7 +7,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 
 type Args = { email?: string; password?: string; name?: string };
 
@@ -36,12 +36,7 @@ async function main() {
       console.error("A parent already exists. Create more from /parent/settings.");
       process.exit(1);
     }
-    const hash = await argon2.hash(password, {
-      type: argon2.argon2id,
-      memoryCost: 19456,
-      timeCost: 2,
-      parallelism: 1,
-    });
+    const hash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: {
         role: "PARENT",
