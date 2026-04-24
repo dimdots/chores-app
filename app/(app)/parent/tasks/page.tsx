@@ -1,19 +1,39 @@
 import Link from "next/link";
 import { requireParent } from "@/lib/auth/permissions";
 import { listTaskDefinitions } from "@/lib/services/tasks";
-import { Card, CardContent } from "@/components/ui/card";
+import { prisma } from "@/lib/db/prisma";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { DeleteTaskButton } from "@/components/parent/delete-task-button";
+import {
+  TasksListSelectable,
+  type TaskRow,
+} from "@/components/parent/tasks-list-selectable";
 import { t } from "@/lib/i18n/ru";
-import { formatPoints } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentTasksPage() {
   await requireParent();
   const tasks = await listTaskDefinitions({ includeInactive: true });
+
+  // Bulk-assign only makes sense when there's exactly one active child — that
+  // matches our shared-trust / single-kid deployment (see memory:
+  // user_family_context). For larger families we fall back to the per-task
+  // assign panel on the detail page.
+  const activeKidCount = await prisma.childProfile.count({
+    where: { user: { isActive: true } },
+  });
+  const canBulkAssign = activeKidCount === 1;
+
+  const rows: TaskRow[] = tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    isActive: task.isActive,
+    points: task.points,
+    categoryName: task.category.name,
+    recurrenceType: task.recurrenceType,
+    createdByRole: task.createdBy?.role ?? null,
+  }));
 
   return (
     <div className="space-y-4">
@@ -31,52 +51,11 @@ export default async function ParentTasksPage() {
         </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState title={t.app.empty} />
       ) : (
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <Card key={task.id} className="hover:shadow-float transition-shadow">
-              <CardContent className="flex items-center gap-3">
-                <Link
-                  href={`/parent/tasks/${task.id}`}
-                  className="flex-1 min-w-0 flex items-center gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900 truncate">{task.title}</p>
-                      {!task.isActive ? <Badge tone="neutral">{t.tasks.inactive}</Badge> : null}
-                      {task.createdBy?.role === "CHILD" ? (
-                        <Badge tone="brand">{t.tasks.createdByChild}</Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {task.category.name} · {recurrenceLabel(task.recurrenceType)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-brand-700 font-semibold">
-                    +{formatPoints(task.points)}
-                  </span>
-                </Link>
-                <DeleteTaskButton taskId={task.id} title={task.title} />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <TasksListSelectable tasks={rows} canBulkAssign={canBulkAssign} />
       )}
     </div>
   );
-}
-
-function recurrenceLabel(kind: string): string {
-  switch (kind) {
-    case "DAILY":
-      return t.tasks.recurrenceDaily;
-    case "WEEKLY":
-      return t.tasks.recurrenceWeekly;
-    case "WEEKDAYS":
-      return t.tasks.recurrenceWeekdays;
-    default:
-      return t.tasks.recurrenceNone;
-  }
 }

@@ -153,6 +153,13 @@ export const ru = {
     presetsCreated: "Задания добавлены: {count}",
     presetsSelectAll: "Все",
     presetsDeselectAll: "Снять",
+    bulkAssign: "Назначить на сегодня",
+    bulkAssignNoneSelected: "Ничего не выбрано",
+    bulkAssignDone: "Назначено: {count}",
+    bulkAssignNeedsSingleChild:
+      "Массовое назначение работает, только когда в семье один активный ребёнок. Назначьте задания вручную через карточку задания.",
+    selectAll: "Выбрать все",
+    deselectAll: "Снять выделение",
   },
   categories: {
     title: "Категории",

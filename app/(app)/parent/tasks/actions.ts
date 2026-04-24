@@ -144,12 +144,12 @@ export async function assignTaskAction(input: {
 }
 
 /**
- * Bulk-create TaskDefinitions from the preset picker. Unlike the single-create
- * action we intentionally DO NOT auto-assign these to today's board — dumping
- * 20+ new tiles on the kid at once would be noisy and undo the point of
- * presets as a catalog. Recurring presets will be materialized by the daily
- * generator when relevant; one-offs (recurrenceType=NONE) sit as definitions
- * until the parent assigns or the kid picks them up from the catalog.
+ * Bulk-create TaskDefinitions from the preset picker. Mirrors the single-
+ * create flow: when there's exactly one active child in the family, each new
+ * task is also assigned to today's board so it appears on the kid's dashboard
+ * immediately. For multi-child families we skip auto-assign since we can't
+ * guess which kid a preset belongs to — the parent can assign from
+ * /parent/tasks afterwards (bulk-assign UI on the list page).
  */
 export async function createTasksFromPresetsAction(
   items: Array<{
@@ -165,9 +165,11 @@ export async function createTasksFromPresetsAction(
       return { ok: false, error: t.errors.validation };
     }
 
+    const onlyChildId = await singleActiveChildId();
+
     let created = 0;
     for (const item of items) {
-      await createTaskDefinition(
+      const def = await createTaskDefinition(
         {
           title: item.title,
           description: item.description ?? null,
@@ -177,11 +179,55 @@ export async function createTasksFromPresetsAction(
         },
         s.userId,
       );
+      if (onlyChildId) {
+        await assignTaskToChild({
+          taskDefinitionId: def.id,
+          childId: onlyChildId,
+          scheduledDate: null,
+        });
+      }
       created += 1;
     }
 
     revalidate();
     return { ok: true, created };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+/**
+ * Bulk-assign a set of existing TaskDefinitions to today's board. Used by the
+ * checkbox selection on /parent/tasks. Single-child families assign silently;
+ * multi-child families get an error back asking them to use the per-task
+ * assign panel instead (we don't want to silently pick a kid for them).
+ */
+export async function assignTasksBulkAction(
+  taskIds: string[],
+): Promise<{ ok: true; assigned: number } | { ok: false; error: string }> {
+  try {
+    await assertParent();
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return { ok: false, error: t.errors.validation };
+    }
+
+    const onlyChildId = await singleActiveChildId();
+    if (!onlyChildId) {
+      return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
+    }
+
+    let assigned = 0;
+    for (const id of taskIds) {
+      await assignTaskToChild({
+        taskDefinitionId: id,
+        childId: onlyChildId,
+        scheduledDate: null,
+      });
+      assigned += 1;
+    }
+
+    revalidate();
+    return { ok: true, assigned };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
