@@ -1,0 +1,260 @@
+// -----------------------------------------------------------------------------
+// Family Chores & Rewards — Prisma schema
+//
+// All writes that affect ChildProfile.currentPoints go through
+// lib/services/points.ts inside a DB transaction. AssignedTask.pointsAwarded
+// and RewardRequest.costAtRequest are SNAPSHOTS — editing a TaskDefinition's
+// point value or a Reward's cost later does not retroactively change the
+// child's balance.
+//
+// The unique constraint on (taskDefinitionId, childId, scheduledDate)
+// prevents the lazy recurring-task generator from creating duplicates for
+// the same child on the same day.
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider      = "prisma-client-js"
+  // `native` builds for the dev machine (macOS arm64 / linux dev).
+  // `rhel-openssl-3.0.x` is what Vercel's Node 20 runtime needs — without
+  // it, the prod build ships the macOS engine and crashes on first query.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARENT
+  CHILD
+}
+
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+  WEEKDAYS
+}
+
+enum AssignedTaskStatus {
+  ASSIGNED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum RewardRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  role         Role
+  name         String
+  email        String?  @unique
+  passwordHash String?
+  pinHash      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  childProfile       ChildProfile?
+  createdTasks       TaskDefinition[]  @relation("TaskCreatedBy")
+  decidedTasks       AssignedTask[]    @relation("TaskApprovedBy")
+  pointAdjustments   PointAdjustment[] @relation("PointAdjCreatedBy")
+  createdRewards     Reward[]          @relation("RewardCreatedBy")
+  decidedRewardReqs  RewardRequest[]   @relation("RewardDecidedBy")
+  activityActor      ActivityLog[]     @relation("ActivityActor")
+  reactions          Reaction[]
+
+  @@index([role, isActive])
+}
+
+model ChildProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  displayName    String
+  currentPoints  Int       @default(0)
+  // Monotonic cumulative total of all positive point deltas ever earned —
+  // tasks and bonus adjustments. Never decreases. Used for level progress
+  // so spending a reward doesn't drop the kid's level.
+  lifetimePoints Int       @default(0)
+  currentLevel   Int       @default(1)
+  currentStreak  Int       @default(0)
+  lastStreakDate DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  assignedTasks  AssignedTask[]
+  pointAdj       PointAdjustment[]
+  rewardRequests RewardRequest[]
+  activityLogs   ActivityLog[]
+}
+
+model TaskCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks TaskDefinition[]
+
+  @@index([isActive, sortOrder])
+}
+
+model TaskDefinition {
+  id             String         @id @default(cuid())
+  title          String
+  description    String?
+  categoryId     String
+  points         Int
+  recurrenceType RecurrenceType @default(NONE)
+  /// JSON array of integers 0..6 (Sun..Sat) when recurrenceType = WEEKDAYS.
+  /// Null otherwise.
+  recurrenceDays String?
+  isActive       Boolean        @default(true)
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  category  TaskCategory   @relation(fields: [categoryId], references: [id])
+  createdBy User           @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assigned  AssignedTask[]
+
+  @@index([isActive])
+  @@index([categoryId])
+}
+
+model AssignedTask {
+  id                    String             @id @default(cuid())
+  taskDefinitionId      String
+  childId               String
+  dueDate               DateTime?
+  scheduledDate         DateTime?
+  status                AssignedTaskStatus @default(ASSIGNED)
+  completionRequestedAt DateTime?
+  approvedAt            DateTime?
+  approvedById          String?
+  rejectionReason       String?
+  /// Snapshot of points awarded at approval time. 0 until approved.
+  pointsAwarded         Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  taskDefinition TaskDefinition @relation(fields: [taskDefinitionId], references: [id])
+  child          ChildProfile   @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approvedBy     User?          @relation("TaskApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([childId, status])
+  @@index([status, createdAt])
+  @@index([childId, scheduledDate])
+  @@unique([taskDefinitionId, childId, scheduledDate], name: "uniq_child_task_per_day")
+}
+
+model PointAdjustment {
+  id          String   @id @default(cuid())
+  childId     String
+  value       Int
+  reason      String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("PointAdjCreatedBy", fields: [createdById], references: [id])
+
+  @@index([childId, createdAt])
+}
+
+model Reward {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  cost          Int
+  isActive      Boolean   @default(true)
+  expiresAt     DateTime?
+  quantityLimit Int?
+  quantityUsed  Int       @default(0)
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdBy User            @relation("RewardCreatedBy", fields: [createdById], references: [id])
+  requests  RewardRequest[]
+
+  @@index([isActive])
+}
+
+model RewardRequest {
+  id              String              @id @default(cuid())
+  rewardId        String
+  childId         String
+  status          RewardRequestStatus @default(PENDING)
+  /// Snapshot of cost at request time.
+  costAtRequest   Int
+  requestedAt     DateTime            @default(now())
+  decidedAt       DateTime?
+  decidedById     String?
+  rejectionReason String?
+
+  reward    Reward       @relation(fields: [rewardId], references: [id])
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  decidedBy User?        @relation("RewardDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([childId, status])
+  @@index([status, requestedAt])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  childId       String?
+  actorUserId   String?
+  eventType     String
+  referenceType String?
+  referenceId   String?
+  pointsDelta   Int      @default(0)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  child     ChildProfile? @relation(fields: [childId], references: [id], onDelete: Cascade)
+  actor     User?         @relation("ActivityActor", fields: [actorUserId], references: [id])
+  reactions Reaction[]
+
+  @@index([childId, createdAt])
+  @@index([createdAt])
+  @@index([eventType])
+}
+
+// Lightweight affirmation on an activity-feed entry. The shared-trust model
+// (pivot 2026-04-19) replaces the old PENDING_APPROVAL gate with pure-positive
+// reactions — anyone in the family can react, no reaction rolls back points.
+model Reaction {
+  id            String   @id @default(cuid())
+  activityLogId String
+  userId        String
+  emoji         String
+  createdAt     DateTime @default(now())
+
+  activityLog ActivityLog @relation(fields: [activityLogId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityLogId, userId, emoji])
+  @@index([activityLogId])
+}
+
+model InviteToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  purpose   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
