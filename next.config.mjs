@@ -6,6 +6,10 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "1mb",
     },
+    // argon2 ships a native .node binding. Next's default server bundler
+    // tries to trace/bundle it, which fails on Vercel Lambdas. Marking it
+    // external means Node resolves it from node_modules at runtime.
+    serverComponentsExternalPackages: ["argon2"],
   },
   async headers() {
     return [
