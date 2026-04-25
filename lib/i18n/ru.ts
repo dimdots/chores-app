@@ -85,6 +85,8 @@ export const ru = {
     addPenalty: "Списать очки",
     noPendingApprovals: "Очередь пуста",
     noPendingRewards: "Новых запросов нет",
+    tasksToday: "Задания на сегодня",
+    noTasksToday: "Заданий на сегодня нет",
   },
   childDashboard: {
     hello: "Привет",

@@ -130,7 +130,15 @@ export async function getParentDashboardData(viewerUserId: string) {
     Promise.resolve(startOfLocalWeek()),
   ]);
 
-  const [weekly, topChores, recent] = await Promise.all([
+  // Materialize recurring tasks for each active child so today's list is
+  // up-to-date when the parent loads the dashboard. Skip inactive children.
+  await Promise.all(
+    children
+      .filter((c) => c.user.isActive)
+      .map((c) => generateRecurringTasksIfNeeded(c.id)),
+  );
+
+  const [weekly, topChores, recent, tasksByChild] = await Promise.all([
     Promise.all(children.map((c) => getWeeklyPointsSeries(c.id, weekStart))),
     getMostCompletedTasks(weekStart),
     prisma.activityLog.findMany({
@@ -152,6 +160,7 @@ export async function getParentDashboardData(viewerUserId: string) {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    Promise.all(children.map((c) => listAssignedTasksForChildToday(c.id))),
   ]);
 
   const [reactionMap, labelMap] = await Promise.all([
@@ -171,6 +180,15 @@ export async function getParentDashboardData(viewerUserId: string) {
     child: r.child ? { id: r.child.id, displayName: r.child.displayName } : null,
   }));
 
+  // Pair each child with their today's assigned tasks (todo only — APPROVED
+  // ones are visible in the activity feed below). Order matches `children`.
+  const todayTasksByChild = children.map((child, i) => ({
+    child,
+    tasks: (tasksByChild[i] ?? []).filter(
+      (t_) => t_.status === "ASSIGNED" || t_.status === "PENDING_APPROVAL",
+    ),
+  }));
+
   return {
     pendingTasks: tasks,
     pendingRewards: rewards,
@@ -178,6 +196,7 @@ export async function getParentDashboardData(viewerUserId: string) {
     weekly,
     topChores,
     recent: feed,
+    todayTasksByChild,
   };
 }
 

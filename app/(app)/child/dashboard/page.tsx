@@ -2,7 +2,8 @@ import { requireChild } from "@/lib/auth/permissions";
 import { getChildDashboardData } from "@/lib/services/children";
 import { PointsHero } from "@/components/child/points-hero";
 import { LevelProgress } from "@/components/child/level-progress";
-import { TaskTile } from "@/components/child/task-tile";
+import { TaskTileGroup } from "@/components/child/task-tile-group";
+import type { ChildTaskTileData } from "@/components/child/task-tile";
 import { RewardTile } from "@/components/child/reward-tile";
 import { ReactionBar } from "@/components/shared/reaction-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,10 +18,21 @@ export default async function ChildDashboard() {
   const session = await requireChild();
   const data = await getChildDashboardData(session.childId, session.userId);
 
-  const today = data.todayTasks.filter((t_) => t_.status === "ASSIGNED");
+  const toTile = (
+    task: (typeof data.todayTasks)[number],
+  ): ChildTaskTileData => ({
+    id: task.id,
+    title: task.taskDefinition.title,
+    category: task.taskDefinition.category.name,
+    points: task.taskDefinition.points,
+    status: task.status,
+  });
+  const today = data.todayTasks.filter((t_) => t_.status === "ASSIGNED").map(toTile);
   // Pending rows only exist from the pre-pivot era; we still show them so
   // stale rows don't become invisible.
-  const pending = data.todayTasks.filter((t_) => t_.status === "PENDING_APPROVAL");
+  const pending = data.todayTasks
+    .filter((t_) => t_.status === "PENDING_APPROVAL")
+    .map(toTile);
   const rewardsTop = data.rewards.slice(0, 5);
 
   return (
@@ -38,40 +50,14 @@ export default async function ChildDashboard() {
         {today.length === 0 ? (
           <EmptyState title={t.childDashboard.allDone} />
         ) : (
-          <div className="space-y-2">
-            {today.map((task) => (
-              <TaskTile
-                key={task.id}
-                task={{
-                  id: task.id,
-                  title: task.taskDefinition.title,
-                  category: task.taskDefinition.category.name,
-                  points: task.taskDefinition.points,
-                  status: task.status,
-                }}
-              />
-            ))}
-          </div>
+          <TaskTileGroup scope="child-dashboard-today" tasks={today} />
         )}
       </section>
 
       {pending.length > 0 ? (
         <section>
           <h2 className="text-lg font-semibold mb-3">{t.childDashboard.pending}</h2>
-          <div className="space-y-2">
-            {pending.map((task) => (
-              <TaskTile
-                key={task.id}
-                task={{
-                  id: task.id,
-                  title: task.taskDefinition.title,
-                  category: task.taskDefinition.category.name,
-                  points: task.taskDefinition.points,
-                  status: task.status,
-                }}
-              />
-            ))}
-          </div>
+          <TaskTileGroup scope="child-dashboard-pending" tasks={pending} />
         </section>
       ) : null}
 

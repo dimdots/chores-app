@@ -1,6 +1,10 @@
 import { requireParent } from "@/lib/auth/permissions";
 import { getParentDashboardData } from "@/lib/services/children";
 import { ChildSummaryCard } from "@/components/parent/child-summary-card";
+import {
+  ChildTodayTasks,
+  type ParentTodayTaskRow,
+} from "@/components/parent/child-today-tasks";
 import { QuickActions } from "@/components/parent/quick-actions";
 import { WeeklyChart } from "@/components/parent/weekly-chart";
 import { ReactionBar } from "@/components/shared/reaction-bar";
@@ -62,6 +66,28 @@ export default async function ParentDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {data.todayTasksByChild.length > 0 ? (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.todayTasksByChild.map(({ child, tasks }) => {
+            const rows: ParentTodayTaskRow[] = tasks.map((task) => ({
+              id: task.id,
+              title: task.taskDefinition.title,
+              category: task.taskDefinition.category.name,
+              points: task.taskDefinition.points,
+              status: task.status,
+            }));
+            return (
+              <ChildTodayTasks
+                key={child.id}
+                childId={child.id}
+                childName={child.displayName}
+                tasks={rows}
+              />
+            );
+          })}
+        </section>
+      ) : null}
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data.weekly.map((w, i) => {
