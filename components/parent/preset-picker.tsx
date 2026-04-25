@@ -140,11 +140,11 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
                           className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">
+                          <p className="text-sm font-medium text-slate-900 break-words">
                             {p.title}
                           </p>
                           {p.description ? (
-                            <p className="text-xs text-slate-500 truncate">{p.description}</p>
+                            <p className="text-xs text-slate-500 break-words">{p.description}</p>
                           ) : null}
                           <p className="text-xs text-slate-400">{p.categoryName}</p>
                         </div>

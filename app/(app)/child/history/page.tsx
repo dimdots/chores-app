@@ -33,7 +33,7 @@ export default async function ChildHistory() {
               {tasks.map((task) => (
                 <li key={task.id} className="py-2 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="text-sm font-medium text-slate-900 break-words">
                       {task.taskDefinition.title}
                     </p>
                     <p className="text-xs text-slate-500">
@@ -65,7 +65,7 @@ export default async function ChildHistory() {
               {rewards.map((r) => (
                 <li key={r.id} className="py-2 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="text-sm font-medium text-slate-900 break-words">
                       {r.reward.title}
                     </p>
                     <p className="text-xs text-slate-500">

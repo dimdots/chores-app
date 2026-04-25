@@ -46,9 +46,9 @@ export function RewardTile({ reward }: { reward: AvailableRewardView }) {
     <Card>
       <CardContent className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-slate-900 truncate">{reward.title}</p>
+          <p className="font-medium text-slate-900 break-words">{reward.title}</p>
           {reward.description ? (
-            <p className="text-xs text-slate-500 truncate">{reward.description}</p>
+            <p className="text-xs text-slate-500 break-words">{reward.description}</p>
           ) : null}
           {reasonLabel ? (
             <Badge tone="warning" className="mt-1">

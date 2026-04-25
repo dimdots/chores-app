@@ -56,7 +56,7 @@ export function TaskApprovalCard({ row }: { row: TaskApprovalRow }) {
       <CardContent>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium text-slate-900 truncate">{row.title}</p>
+            <p className="font-medium text-slate-900 break-words">{row.title}</p>
             <p className="text-xs text-slate-500 truncate">
               {row.childName} · {row.category}
               {row.requestedAt ? ` · ${formatDateTimeRu(row.requestedAt)}` : ""}
@@ -129,7 +129,7 @@ export function RewardApprovalCard({ row }: { row: RewardApprovalRow }) {
       <CardContent>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium text-slate-900 truncate">{row.rewardTitle}</p>
+            <p className="font-medium text-slate-900 break-words">{row.rewardTitle}</p>
             <p className="text-xs text-slate-500 truncate">
               {row.childName} · {formatDateTimeRu(row.requestedAt)}
             </p>

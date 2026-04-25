@@ -134,7 +134,7 @@ export default async function ChildDetailPage({
               {recentTasks.map((r) => (
                 <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{r.taskDefinition.title}</p>
+                    <p className="break-words font-medium">{r.taskDefinition.title}</p>
                     <p className="text-xs text-slate-500 truncate">
                       {r.taskDefinition.category.name} · {formatDateRu(r.createdAt)}
                     </p>
@@ -162,7 +162,7 @@ export default async function ChildDetailPage({
               {recentRewards.map((r) => (
                 <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{r.reward.title}</p>
+                    <p className="break-words font-medium">{r.reward.title}</p>
                     <p className="text-xs text-slate-500 truncate">
                       {formatDateRu(r.requestedAt)}
                     </p>

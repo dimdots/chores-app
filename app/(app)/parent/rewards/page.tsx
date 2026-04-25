@@ -33,8 +33,8 @@ export default async function ParentRewardsPage() {
               <Card className="hover:shadow-float transition-shadow">
                 <CardContent className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900 truncate">{r.title}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="font-medium text-slate-900 break-words">{r.title}</p>
                       {!r.isActive ? <Badge tone="neutral">{t.rewards.inactive}</Badge> : null}
                     </div>
                     <p className="text-xs text-slate-500">

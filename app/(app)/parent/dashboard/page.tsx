@@ -55,10 +55,10 @@ export default async function ParentDashboard() {
                 {data.topChores.map((c) => (
                   <li
                     key={c.definition.id}
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-start justify-between gap-3 text-sm"
                   >
-                    <span className="truncate">{c.definition.title}</span>
-                    <span className="text-slate-500">{c.count}×</span>
+                    <span className="break-words min-w-0">{c.definition.title}</span>
+                    <span className="text-slate-500 shrink-0">{c.count}×</span>
                   </li>
                 ))}
               </ul>

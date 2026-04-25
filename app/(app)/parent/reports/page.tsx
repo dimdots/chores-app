@@ -162,12 +162,12 @@ export default async function ReportsPage({
           ) : (
             <ul className="space-y-1">
               {topChores.map((c) => (
-                <li key={c.definition.id} className="flex items-center justify-between text-sm">
-                  <span className="truncate">
+                <li key={c.definition.id} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="break-words min-w-0">
                     <span className="text-slate-500 mr-1">{c.definition.category.name}</span>
                     {c.definition.title}
                   </span>
-                  <span className="text-slate-500">{c.count}×</span>
+                  <span className="text-slate-500 shrink-0">{c.count}×</span>
                 </li>
               ))}
             </ul>
@@ -187,7 +187,7 @@ export default async function ReportsPage({
               {rewardHistory.slice(0, 20).map((r) => (
                 <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{r.reward.title}</p>
+                    <p className="break-words font-medium">{r.reward.title}</p>
                     <p className="text-xs text-slate-500 truncate">
                       {r.child.displayName} · {formatDateRu(r.requestedAt)} ·{" "}
                       {r.status === "PENDING"
