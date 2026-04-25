@@ -162,6 +162,7 @@ export const ru = {
       "Массовое назначение работает, только когда в семье один активный ребёнок. Назначьте задания вручную через карточку задания.",
     selectAll: "Выбрать все",
     deselectAll: "Снять выделение",
+    pointsInvalid: "Введите количество очков",
   },
   categories: {
     title: "Категории",
@@ -195,6 +196,7 @@ export const ru = {
     confirmRequest: "Потратить очки на эту награду?",
     requested: "Запрос отправлен",
     empty: "Наград пока нет",
+    costInvalid: "Введите стоимость в очках",
   },
   approvals: {
     title: "Одобрения",
@@ -217,6 +219,7 @@ export const ru = {
     confirmPenalty: "Списать очки?",
     negativeNotAllowed: "Баланс не может стать отрицательным",
     saved: "Готово",
+    valueInvalid: "Введите количество очков",
   },
   reports: {
     title: "Отчёты",

@@ -16,7 +16,9 @@ export function AdjustmentForm({
   const router = useRouter();
   const [childId, setChildId] = useState(kids[0]?.id ?? "");
   const [kind, setKind] = useState<"bonus" | "penalty">("bonus");
-  const [value, setValue] = useState(10);
+  // Stored as a string so the user can fully clear the field on mobile.
+  // Parsing on submit lets the field be empty mid-edit.
+  const [value, setValue] = useState("10");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -26,7 +28,12 @@ export function AdjustmentForm({
     e.preventDefault();
     setError(null);
     setInfo(null);
-    const signedValue = kind === "bonus" ? Math.abs(value) : -Math.abs(value);
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setError(t.points.valueInvalid);
+      return;
+    }
+    const signedValue = kind === "bonus" ? Math.abs(parsed) : -Math.abs(parsed);
     if (kind === "penalty" && !confirm(t.points.confirmPenalty)) return;
     start(async () => {
       const res = await addAdjustmentAction({
@@ -39,7 +46,7 @@ export function AdjustmentForm({
         return;
       }
       setReason("");
-      setValue(10);
+      setValue("10");
       setInfo(t.points.saved);
       router.refresh();
     });
@@ -76,9 +83,10 @@ export function AdjustmentForm({
           <Input
             id="adj-value"
             type="number"
+            inputMode="numeric"
             min={1}
             value={value}
-            onChange={(e) => setValue(Math.max(1, Number(e.target.value) || 1))}
+            onChange={(e) => setValue(e.target.value)}
           />
         </div>
       </div>

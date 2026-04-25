@@ -30,7 +30,10 @@ export function RewardForm({ initial }: { initial?: RewardFormInitial }) {
   const [state, setState] = useState({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
-    cost: initial?.cost ?? 50,
+    // Stored as a string so the user can fully clear the field on mobile.
+    // Without this, an empty input would be re-rendered as "0" because
+    // Number("") === 0 — that's why one digit always stuck around.
+    cost: String(initial?.cost ?? 50),
     expiresAt: dateToInput(initial?.expiresAt),
     quantityLimit: initial?.quantityLimit ?? "",
     isActive: initial?.isActive ?? true,
@@ -41,10 +44,15 @@ export function RewardForm({ initial }: { initial?: RewardFormInitial }) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const parsedCost = Number.parseInt(state.cost, 10);
+    if (!Number.isFinite(parsedCost) || parsedCost < 0) {
+      setError(t.rewards.costInvalid);
+      return;
+    }
     const payload = {
       title: state.title,
       description: state.description || null,
-      cost: state.cost,
+      cost: parsedCost,
       expiresAt: state.expiresAt || null,
       quantityLimit:
         state.quantityLimit === "" || state.quantityLimit === null
@@ -90,11 +98,10 @@ export function RewardForm({ initial }: { initial?: RewardFormInitial }) {
           <Input
             id="cost"
             type="number"
+            inputMode="numeric"
             min={0}
             value={state.cost}
-            onChange={(e) =>
-              setState((s) => ({ ...s, cost: Number.parseInt(e.target.value || "0", 10) }))
-            }
+            onChange={(e) => setState((s) => ({ ...s, cost: e.target.value }))}
           />
         </div>
         <div>

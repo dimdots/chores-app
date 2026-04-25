@@ -37,7 +37,8 @@ export function TaskForm({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
     categoryId: initial?.categoryId ?? categories[0]?.id ?? "",
-    points: initial?.points ?? 10,
+    // Stored as a string so the field can be fully cleared on mobile.
+    points: String(initial?.points ?? 10),
     recurrenceType: (initial?.recurrenceType ?? "NONE") as Recurrence,
     recurrenceDays: new Set<number>(initial?.recurrenceDays ?? []),
     isActive: initial?.isActive ?? true,
@@ -57,11 +58,16 @@ export function TaskForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const parsedPoints = Number.parseInt(state.points, 10);
+    if (!Number.isFinite(parsedPoints) || parsedPoints < 0) {
+      setError(t.tasks.pointsInvalid);
+      return;
+    }
     const payload = {
       title: state.title,
       description: state.description || null,
       categoryId: state.categoryId,
-      points: state.points,
+      points: parsedPoints,
       recurrenceType: state.recurrenceType,
       recurrenceDays:
         state.recurrenceType === "WEEKDAYS" ? Array.from(state.recurrenceDays).sort() : null,
@@ -126,12 +132,11 @@ export function TaskForm({
           <Input
             id="points"
             type="number"
+            inputMode="numeric"
             min={0}
             max={1_000_000}
             value={state.points}
-            onChange={(e) =>
-              setState((s) => ({ ...s, points: Number.parseInt(e.target.value || "0", 10) }))
-            }
+            onChange={(e) => setState((s) => ({ ...s, points: e.target.value }))}
           />
         </div>
       </div>

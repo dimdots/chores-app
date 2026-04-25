@@ -24,7 +24,9 @@ export type ResolvedPreset = {
 
 type RowState = {
   selected: boolean;
-  points: number;
+  // Stored as a string so the user can fully clear the field on mobile —
+  // empty input would otherwise re-render as "0" because Number("") === 0.
+  points: string;
 };
 
 export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
@@ -37,7 +39,7 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
   // asked to preserve this ability when picking from presets.
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
-      presets.map((p) => [p.key, { selected: false, points: p.defaultPoints }]),
+      presets.map((p) => [p.key, { selected: false, points: String(p.defaultPoints) }]),
     ),
   );
 
@@ -62,7 +64,7 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
     }));
   }
 
-  function setPoints(key: string, points: number) {
+  function setPoints(key: string, points: string) {
     setRows((prev) => ({
       ...prev,
       [key]: { ...prev[key]!, points },
@@ -84,12 +86,18 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
     setError(null);
     const items = presets
       .filter((p) => rows[p.key]?.selected)
-      .map((p) => ({
-        title: p.title,
-        description: p.description ?? null,
-        categoryId: p.categoryId,
-        points: Math.max(0, Math.floor(rows[p.key]!.points || 0)),
-      }));
+      .map((p) => {
+        // Empty/non-numeric falls back to 0 — base tasks are valid at 0pts
+        // and the user can always edit before saving. Negative is clamped.
+        const parsed = Number.parseInt(rows[p.key]!.points, 10);
+        const safePoints = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+        return {
+          title: p.title,
+          description: p.description ?? null,
+          categoryId: p.categoryId,
+          points: safePoints,
+        };
+      });
 
     if (items.length === 0) {
       setError(t.tasks.presetsNoneSelected);
@@ -151,12 +159,11 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
                         <div className="shrink-0 w-20">
                           <Input
                             type="number"
+                            inputMode="numeric"
                             min={0}
                             max={1_000_000}
                             value={row.points}
-                            onChange={(e) =>
-                              setPoints(p.key, Number.parseInt(e.target.value || "0", 10))
-                            }
+                            onChange={(e) => setPoints(p.key, e.target.value)}
                             aria-label={`${t.tasks.points} — ${p.title}`}
                             className="h-9 text-right"
                           />
