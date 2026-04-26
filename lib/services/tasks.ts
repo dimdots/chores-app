@@ -184,36 +184,65 @@ export async function markTaskCompletedByChild(
     include: { taskDefinition: true },
   });
   if (!assigned || assigned.childId !== childId) throw new Error(t.errors.taskNotFound);
+  return _completeAssignedTask(assigned, actorUserId);
+}
+
+/**
+ * Parent-side equivalent of `markTaskCompletedByChild`. The shared-trust
+ * pivot lets either side check off a task — useful when the parent is the
+ * one who actually saw it done (e.g., trash taken out under their nose) and
+ * doesn't want to open the kid's account just to record it. The childId
+ * comes from the assigned task itself; no separate match check is needed
+ * because the parent already passed `assertParent` at the action layer.
+ */
+export async function markTaskCompletedByParent(
+  assignedTaskId: string,
+  actorUserId: string,
+) {
+  const assigned = await prisma.assignedTask.findUnique({
+    where: { id: assignedTaskId },
+    include: { taskDefinition: true },
+  });
+  if (!assigned) throw new Error(t.errors.taskNotFound);
+  return _completeAssignedTask(assigned, actorUserId);
+}
+
+// Shared completion path used by both child- and parent-initiated marks.
+// Status guard + points delta + streak bump happen in a single transaction
+// so a half-applied row never escapes (e.g., points credited but task still
+// ASSIGNED, or vice versa).
+async function _completeAssignedTask(
+  assigned: { id: string; childId: string; status: string; taskDefinition: { points: number } },
+  actorUserId: string,
+) {
   if (assigned.status !== "ASSIGNED") throw new Error(t.errors.alreadyProcessed);
   const pts = assigned.taskDefinition.points;
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.assignedTask.update({
-      where: { id: assignedTaskId, status: "ASSIGNED" },
+      where: { id: assigned.id, status: "ASSIGNED" },
       data: {
         status: "APPROVED",
         completionRequestedAt: now,
         approvedAt: now,
-        // The child is both the doer and (implicitly) the approver in this
-        // trust-based model. approvedById points at the child's user so the
-        // audit trail still reflects who triggered the delta.
+        // approvedById is the actor (kid or parent) for the audit trail.
         approvedById: actorUserId,
         pointsAwarded: pts,
       },
     });
     await applyPointsDelta(
       {
-        childId,
+        childId: assigned.childId,
         delta: pts,
         actorUserId,
         eventType: "TASK_APPROVED",
         referenceType: "AssignedTask",
-        referenceId: assignedTaskId,
+        referenceId: assigned.id,
       },
       tx,
     );
-    await updateStreakAfterTaskApproval(childId, now, tx);
+    await updateStreakAfterTaskApproval(assigned.childId, now, tx);
     return updated;
   });
 }

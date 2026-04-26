@@ -9,6 +9,7 @@ import {
   restoreTaskDefinition,
   deleteTaskDefinition,
   assignTaskToChild,
+  markTaskCompletedByParent,
 } from "@/lib/services/tasks";
 import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
@@ -202,6 +203,25 @@ export async function createTasksFromPresetsAction(
  * multi-child families get an error back asking them to use the per-task
  * assign panel instead (we don't want to silently pick a kid for them).
  */
+/**
+ * Parent marks a kid's assigned task as done. Same auto-approve semantics
+ * as the kid's own "Готово!" button — points credited, streak updated,
+ * activity-log entry written. Useful when the parent witnesses the task
+ * being done and wants to record it from their own session.
+ */
+export async function markTaskCompleteByParentAction(
+  assignedTaskId: string,
+): Promise<Res> {
+  try {
+    const s = await assertParent();
+    await markTaskCompletedByParent(assignedTaskId, s.userId);
+    revalidate();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
 export async function assignTasksBulkAction(
   taskIds: string[],
 ): Promise<{ ok: true; assigned: number } | { ok: false; error: string }> {
