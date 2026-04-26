@@ -19,12 +19,14 @@ export type ParentTodayTaskRow = {
 };
 
 /**
- * Per-child today's-tasks card on the parent dashboard. Grouped by category
- * and collapsible — scope is per-child so collapsing one kid's "Домашние
- * дела" doesn't cascade into another child's section. Each ASSIGNED row
- * exposes a "Готово!" button so the parent can check things off without
- * switching to the kid's account (shared-trust pivot — either side may
- * record completion).
+ * Per-child open-tasks card on the parent dashboard. Includes today's
+ * recurring instances plus any unscheduled tasks that haven't been done
+ * yet — those are open-ended and persist day to day until completed, not
+ * tied to "today". Grouped by category and collapsible — scope is
+ * per-child so collapsing one kid's "Домашние дела" doesn't cascade into
+ * another child's section. Each ASSIGNED row exposes a "Готово!" button
+ * so the parent can check things off without switching to the kid's
+ * account (shared-trust pivot — either side may record completion).
  */
 export function ChildTodayTasks({
   childId,
