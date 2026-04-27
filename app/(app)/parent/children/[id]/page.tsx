@@ -190,14 +190,14 @@ export default async function ChildDetailPage({
               {recentActivity.map((r) => {
                 const label = activityTitles.get(r.id) ?? "";
                 return (
-                  <li key={r.id} className="py-2 flex items-center justify-between gap-3">
-                    <span className="truncate">
+                  <li key={r.id} className="py-2 flex items-start justify-between gap-3">
+                    <span className="break-words min-w-0">
                       {t.activity[r.eventType as keyof typeof t.activity] ?? r.eventType}
                       {label ? (
                         <span className="text-slate-900 font-medium"> · {label}</span>
                       ) : null}
                     </span>
-                    <span className="text-xs text-slate-500 shrink-0">
+                    <span className="text-xs text-slate-500 shrink-0 text-right">
                       {formatDateTimeRu(r.createdAt)}
                       {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta)}` : ""}
                     </span>

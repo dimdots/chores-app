@@ -215,12 +215,12 @@ export default async function ReportsPage({
           ) : (
             <ul className="divide-y divide-slate-100 text-sm">
               {activity.slice(0, 30).map((r) => (
-                <li key={r.id} className="py-2 flex items-center justify-between gap-3">
-                  <span className="truncate">
+                <li key={r.id} className="py-2 flex items-start justify-between gap-3">
+                  <span className="break-words min-w-0">
                     {t.activity[r.eventType as keyof typeof t.activity] ?? r.eventType}
                     {r.child ? ` · ${r.child.displayName}` : ""}
                   </span>
-                  <span className="text-xs text-slate-500 shrink-0">
+                  <span className="text-xs text-slate-500 shrink-0 text-right">
                     {formatDateTimeRu(r.createdAt)}
                     {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta)}` : ""}
                   </span>
