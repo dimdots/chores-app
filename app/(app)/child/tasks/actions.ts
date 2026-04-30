@@ -41,6 +41,54 @@ export async function markTaskCompleteAction(assignedTaskId: string): Promise<Re
  * tasks we also seed today's assignment so the new task shows up on the
  * kid's board immediately without waiting for tomorrow's generator pass.
  */
+/**
+ * Bulk-create TaskDefinitions on the child side from the preset picker. Each
+ * created task is auto-assigned to the calling kid (just like single-task
+ * creation does — kids can only add to their own queue). Recurrence is
+ * always NONE for preset picks; the kid can edit the resulting tasks later
+ * if they want a recurring routine.
+ */
+export async function createChildTasksFromPresetsAction(
+  items: Array<{
+    title: string;
+    description?: string | null;
+    categoryId: string;
+    points: number;
+  }>,
+): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  try {
+    const s = await assertChild();
+    if (!Array.isArray(items) || items.length === 0) {
+      return { ok: false, error: t.errors.validation };
+    }
+
+    let created = 0;
+    for (const item of items) {
+      const def = await createTaskDefinition(
+        {
+          title: item.title,
+          description: item.description ?? null,
+          categoryId: item.categoryId,
+          points: item.points,
+          recurrenceType: "NONE",
+        },
+        s.userId,
+      );
+      await assignTaskToChild({
+        taskDefinitionId: def.id,
+        childId: s.childId,
+        scheduledDate: null,
+      });
+      created += 1;
+    }
+
+    revalidate();
+    return { ok: true, created };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
 export async function createChildTaskAction(input: {
   title: string;
   categoryId: string;

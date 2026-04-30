@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { t } from "@/lib/i18n/ru";
-import { createTasksFromPresetsAction } from "@/app/(app)/parent/tasks/actions";
 
 // A single preset row prepared server-side: the category name from the
 // preset catalog has already been resolved to a concrete categoryId so the
@@ -22,6 +21,13 @@ export type ResolvedPreset = {
   defaultPoints: number;
 };
 
+export type PresetItem = {
+  title: string;
+  description?: string | null;
+  categoryId: string;
+  points: number;
+};
+
 type RowState = {
   selected: boolean;
   // Stored as a string so the user can fully clear the field on mobile —
@@ -29,7 +35,17 @@ type RowState = {
   points: string;
 };
 
-export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
+export function PresetPicker({
+  presets,
+  action,
+  redirectTo,
+}: {
+  presets: ResolvedPreset[];
+  action: (
+    items: PresetItem[],
+  ) => Promise<{ ok: true; created: number } | { ok: false; error: string }>;
+  redirectTo: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +121,12 @@ export function PresetPicker({ presets }: { presets: ResolvedPreset[] }) {
     }
 
     start(async () => {
-      const res = await createTasksFromPresetsAction(items);
+      const res = await action(items);
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      router.push("/parent/tasks");
+      router.push(redirectTo);
       router.refresh();
     });
   }

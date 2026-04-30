@@ -39,9 +39,16 @@ export default async function ChildTasks() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{t.tasks.list}</h1>
-        <Link href="/child/tasks/new">
-          <Button size="sm">{t.tasks.childNew}</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/child/tasks/presets">
+            <Button size="sm" variant="secondary">
+              {t.tasks.presets}
+            </Button>
+          </Link>
+          <Link href="/child/tasks/new">
+            <Button size="sm">{t.tasks.childNew}</Button>
+          </Link>
+        </div>
       </div>
 
       <section className="space-y-2">

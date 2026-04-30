@@ -1,21 +1,21 @@
-import { requireParent } from "@/lib/auth/permissions";
+import { requireChild } from "@/lib/auth/permissions";
 import { listCategories } from "@/lib/services/categories";
 import { DEFAULT_TASK_PRESETS } from "@/config/defaults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PresetPicker, type ResolvedPreset } from "@/components/parent/preset-picker";
-import { createTasksFromPresetsAction } from "@/app/(app)/parent/tasks/actions";
+import { createChildTasksFromPresetsAction } from "@/app/(app)/child/tasks/actions";
 import { t } from "@/lib/i18n/ru";
 
 export const dynamic = "force-dynamic";
 
-export default async function TaskPresetsPage() {
-  await requireParent();
+export default async function ChildTaskPresetsPage() {
+  await requireChild();
   const categories = await listCategories({ activeOnly: true });
 
   // Resolve each preset's textual categoryName to a concrete categoryId. If a
-  // category was archived by the parent we fall back to the first active
-  // category so the preset still lands somewhere sensible rather than
-  // exploding in the server action's validator.
+  // category was archived we fall back to the first active category so the
+  // preset still lands somewhere sensible rather than exploding in the server
+  // action's validator.
   const byName = new Map(categories.map((c) => [c.name, c]));
   const fallback = categories[0];
 
@@ -43,8 +43,8 @@ export default async function TaskPresetsPage() {
       <CardContent>
         <PresetPicker
           presets={resolved}
-          action={createTasksFromPresetsAction}
-          redirectTo="/parent/tasks"
+          action={createChildTasksFromPresetsAction}
+          redirectTo="/child/tasks"
         />
       </CardContent>
     </Card>

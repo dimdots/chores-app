@@ -21,12 +21,12 @@ export function QuickActions() {
           </Button>
         </Link>
         <Link href="/parent/settings">
-          <Button variant="ghost" fullWidth>
+          <Button variant="secondary" fullWidth>
             {t.parentDashboard.addBonus}
           </Button>
         </Link>
         <Link href="/parent/reports">
-          <Button variant="ghost" fullWidth>
+          <Button variant="secondary" fullWidth>
             {t.nav.reports}
           </Button>
         </Link>
