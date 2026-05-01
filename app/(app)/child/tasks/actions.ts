@@ -6,6 +6,7 @@ import {
   markTaskCompletedByChild,
   createTaskDefinition,
   assignTaskToChild,
+  createAndCompleteAdHocTask,
 } from "@/lib/services/tasks";
 import { t } from "@/lib/i18n/ru";
 
@@ -41,6 +42,36 @@ export async function markTaskCompleteAction(assignedTaskId: string): Promise<Re
  * tasks we also seed today's assignment so the new task shows up on the
  * kid's board immediately without waiting for tomorrow's generator pass.
  */
+/**
+ * Instant credit for a single preset on the child side: kid taps "Готово"
+ * on a preset row and the points land immediately. We create the definition
+ * + assigned row + APPROVED state in one transaction (see service notes).
+ */
+export async function completePresetAsChildAction(input: {
+  title: string;
+  description?: string | null;
+  categoryId: string;
+  points: number;
+}): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  try {
+    const s = await assertChild();
+    await createAndCompleteAdHocTask(
+      {
+        title: input.title,
+        description: input.description ?? null,
+        categoryId: input.categoryId,
+        points: input.points,
+      },
+      s.childId,
+      s.userId,
+    );
+    revalidate();
+    return { ok: true, pointsAwarded: Math.max(0, Math.floor(input.points)) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
 /**
  * Bulk-create TaskDefinitions on the child side from the preset picker. Each
  * created task is auto-assigned to the calling kid (just like single-task

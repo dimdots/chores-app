@@ -10,6 +10,7 @@ import {
   deleteTaskDefinition,
   assignTaskToChild,
   markTaskCompletedByParent,
+  createAndCompleteAdHocTask,
 } from "@/lib/services/tasks";
 import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
@@ -217,6 +218,41 @@ export async function markTaskCompleteByParentAction(
     await markTaskCompletedByParent(assignedTaskId, s.userId);
     revalidate();
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+/**
+ * Instant credit for a single preset on the parent side. Single-child
+ * families auto-target the only kid; multi-kid families see an error asking
+ * them to use the per-task assign panel instead — same rationale as
+ * `assignTasksBulkAction` (we don't want to silently pick a child).
+ */
+export async function completePresetAsParentAction(input: {
+  title: string;
+  description?: string | null;
+  categoryId: string;
+  points: number;
+}): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  try {
+    const s = await assertParent();
+    const onlyChildId = await singleActiveChildId();
+    if (!onlyChildId) {
+      return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
+    }
+    await createAndCompleteAdHocTask(
+      {
+        title: input.title,
+        description: input.description ?? null,
+        categoryId: input.categoryId,
+        points: input.points,
+      },
+      onlyChildId,
+      s.userId,
+    );
+    revalidate();
+    return { ok: true, pointsAwarded: Math.max(0, Math.floor(input.points)) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }

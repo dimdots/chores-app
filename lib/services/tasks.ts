@@ -207,6 +207,68 @@ export async function markTaskCompletedByParent(
   return _completeAssignedTask(assigned, actorUserId);
 }
 
+/**
+ * One-shot "I just did this" credit from the preset list. Creates a fresh
+ * one-off TaskDefinition (recurrence NONE), an AssignedTask in ASSIGNED, and
+ * immediately marks it APPROVED — all in a single transaction so the points
+ * delta, streak bump, and audit row stay consistent. Used by the per-row
+ * "Готово" button on the preset picker; lets the kid (or parent) credit
+ * points for an ad-hoc thing without first cluttering the todo list with a
+ * row that would just be checked off seconds later.
+ */
+export async function createAndCompleteAdHocTask(
+  input: { title: string; description?: string | null; categoryId: string; points: number },
+  childId: string,
+  actorUserId: string,
+) {
+  const child = await prisma.childProfile.findUnique({ where: { id: childId } });
+  if (!child) throw new Error(t.errors.childNotFound);
+  const cat = await prisma.taskCategory.findUnique({ where: { id: input.categoryId } });
+  if (!cat) throw new Error(t.errors.validation);
+  const safePoints = Math.max(0, Math.floor(input.points));
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const def = await tx.taskDefinition.create({
+      data: {
+        title: input.title,
+        description: input.description ?? null,
+        categoryId: input.categoryId,
+        points: safePoints,
+        recurrenceType: "NONE",
+        recurrenceDays: null,
+        createdById: actorUserId,
+        isActive: true,
+      },
+    });
+    const assigned = await tx.assignedTask.create({
+      data: {
+        taskDefinitionId: def.id,
+        childId,
+        scheduledDate: null,
+        status: "APPROVED",
+        completionRequestedAt: now,
+        approvedAt: now,
+        approvedById: actorUserId,
+        pointsAwarded: safePoints,
+      },
+    });
+    await applyPointsDelta(
+      {
+        childId,
+        delta: safePoints,
+        actorUserId,
+        eventType: "TASK_APPROVED",
+        referenceType: "AssignedTask",
+        referenceId: assigned.id,
+      },
+      tx,
+    );
+    await updateStreakAfterTaskApproval(childId, now, tx);
+    return assigned;
+  });
+}
+
 // Shared completion path used by both child- and parent-initiated marks.
 // Status guard + points delta + streak bump happen in a single transaction
 // so a half-applied row never escapes (e.g., points credited but task still

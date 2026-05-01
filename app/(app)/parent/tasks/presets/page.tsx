@@ -3,7 +3,10 @@ import { listCategories } from "@/lib/services/categories";
 import { DEFAULT_TASK_PRESETS } from "@/config/defaults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PresetPicker, type ResolvedPreset } from "@/components/parent/preset-picker";
-import { createTasksFromPresetsAction } from "@/app/(app)/parent/tasks/actions";
+import {
+  createTasksFromPresetsAction,
+  completePresetAsParentAction,
+} from "@/app/(app)/parent/tasks/actions";
 import { t } from "@/lib/i18n/ru";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +47,7 @@ export default async function TaskPresetsPage() {
         <PresetPicker
           presets={resolved}
           action={createTasksFromPresetsAction}
+          completeAction={completePresetAsParentAction}
           redirectTo="/parent/tasks"
         />
       </CardContent>

@@ -155,6 +155,7 @@ export const ru = {
     presetsCreated: "Задания добавлены: {count}",
     presetsSelectAll: "Все",
     presetsDeselectAll: "Снять",
+    presetsCreditNow: "Готово",
     bulkAssign: "Назначить на сегодня",
     bulkAssignNoneSelected: "Ничего не выбрано",
     bulkAssignDone: "Назначено: {count}",

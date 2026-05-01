@@ -38,17 +38,30 @@ type RowState = {
 export function PresetPicker({
   presets,
   action,
+  completeAction,
   redirectTo,
 }: {
   presets: ResolvedPreset[];
   action: (
     items: PresetItem[],
   ) => Promise<{ ok: true; created: number } | { ok: false; error: string }>;
+  // Per-row "instant credit" for a single preset. Optional — we only render
+  // the "Готово" button if the caller wires this in. Returns the points
+  // actually awarded so the UI can flash a toast.
+  completeAction?: (
+    item: PresetItem,
+  ) => Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }>;
   redirectTo: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Per-row "completing" + "completed" tracking for the instant-credit flow.
+  // We disable a row once it's been credited so a frantic double-tap can't
+  // award points twice; the row stays visually "done" until the user navigates
+  // away or refreshes the page.
+  const [completing, setCompleting] = useState<Record<string, boolean>>({});
+  const [completed, setCompleted] = useState<Record<string, number>>({});
 
   // Keep row state keyed by preset.key so it survives re-renders. Points
   // start at defaultPoints but are fully editable — the user explicitly
@@ -96,6 +109,38 @@ export function PresetPicker({
       }
       return next;
     });
+  }
+
+  function parsePoints(raw: string): number {
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  async function completeOne(p: ResolvedPreset) {
+    if (!completeAction) return;
+    if (completing[p.key] || completed[p.key] !== undefined) return;
+    setError(null);
+    setCompleting((prev) => ({ ...prev, [p.key]: true }));
+    const item: PresetItem = {
+      title: p.title,
+      description: p.description ?? null,
+      categoryId: p.categoryId,
+      points: parsePoints(rows[p.key]!.points),
+    };
+    try {
+      const res = await completeAction(item);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setCompleted((prev) => ({ ...prev, [p.key]: res.pointsAwarded }));
+      // Refresh server data (PointsHero / activity feed) without leaving the
+      // page; the kid stays in the picker so they can quickly credit a few
+      // things in a row.
+      router.refresh();
+    } finally {
+      setCompleting((prev) => ({ ...prev, [p.key]: false }));
+    }
   }
 
   function submit() {
@@ -154,14 +199,24 @@ export function PresetPicker({
                 <ul className="divide-y divide-slate-100">
                   {groupPresets.map((p) => {
                     const row = rows[p.key]!;
+                    const isCompleting = !!completing[p.key];
+                    const awarded = completed[p.key];
+                    const isDone = awarded !== undefined;
                     return (
-                      <li key={p.key} className="py-2 flex items-center gap-3">
+                      <li
+                        key={p.key}
+                        className={
+                          "py-2 flex items-center gap-3 " +
+                          (isDone ? "opacity-60" : "")
+                        }
+                      >
                         <input
                           type="checkbox"
                           checked={row.selected}
                           onChange={() => toggleSelected(p.key)}
                           aria-label={p.title}
-                          className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
+                          disabled={isDone}
+                          className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400 disabled:opacity-50"
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 break-words">
@@ -172,7 +227,7 @@ export function PresetPicker({
                           ) : null}
                           <p className="text-xs text-slate-400">{p.categoryName}</p>
                         </div>
-                        <div className="shrink-0 w-20">
+                        <div className="shrink-0 w-16">
                           <Input
                             type="number"
                             inputMode="numeric"
@@ -182,8 +237,25 @@ export function PresetPicker({
                             onChange={(e) => setPoints(p.key, e.target.value)}
                             aria-label={`${t.tasks.points} — ${p.title}`}
                             className="h-9 text-right"
+                            disabled={isDone}
                           />
                         </div>
+                        {completeAction ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isDone ? "secondary" : "success"}
+                            onClick={() => completeOne(p)}
+                            disabled={isCompleting || isDone}
+                            aria-label={`${t.tasks.presetsCreditNow} — ${p.title}`}
+                          >
+                            {isDone
+                              ? `+${awarded}`
+                              : isCompleting
+                                ? t.app.loading
+                                : t.tasks.presetsCreditNow}
+                          </Button>
+                        ) : null}
                       </li>
                     );
                   })}
