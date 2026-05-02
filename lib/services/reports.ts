@@ -12,14 +12,27 @@ export async function getWeeklyPointsSeries(
   weekStart: Date = startOfLocalWeek(),
 ): Promise<{ childId: string; series: WeeklyPointsPoint[]; total: number }> {
   const end = addDays(weekStart, 7);
-  const tasks = await prisma.assignedTask.findMany({
-    where: {
-      childId,
-      status: "APPROVED",
-      approvedAt: { gte: weekStart, lt: end },
-    },
-    select: { approvedAt: true, pointsAwarded: true },
-  });
+  // Two separate inputs land on the same daily bucket: APPROVED tasks (their
+  // pointsAwarded snapshot) and standalone PointAdjustment rows (parent-issued
+  // bonuses/penalties). The current-points balance reflects both, so the chart
+  // also has to — otherwise a bonus day looks like a no-points day.
+  const [tasks, adjustments] = await Promise.all([
+    prisma.assignedTask.findMany({
+      where: {
+        childId,
+        status: "APPROVED",
+        approvedAt: { gte: weekStart, lt: end },
+      },
+      select: { approvedAt: true, pointsAwarded: true },
+    }),
+    prisma.pointAdjustment.findMany({
+      where: {
+        childId,
+        createdAt: { gte: weekStart, lt: end },
+      },
+      select: { createdAt: true, value: true },
+    }),
+  ]);
 
   const buckets = new Map<string, number>();
   for (let i = 0; i < 7; i++) {
@@ -29,6 +42,10 @@ export async function getWeeklyPointsSeries(
     if (!t.approvedAt) continue;
     const key = isoDateLocal(t.approvedAt);
     if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + t.pointsAwarded);
+  }
+  for (const a of adjustments) {
+    const key = isoDateLocal(a.createdAt);
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + a.value);
   }
   const series: WeeklyPointsPoint[] = [...buckets.entries()].map(([date, points]) => ({
     date,

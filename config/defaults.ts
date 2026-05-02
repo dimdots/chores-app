@@ -64,7 +64,7 @@ export const DEFAULT_TASKS: ReadonlyArray<{
 ];
 
 /**
- * Catalog of preset tasks the parent can quick-add from /parent/tasks/presets.
+ * Catalog of preset tasks rendered on the /parent/tasks and /child/tasks pages.
  *
  * Philosophy (see memory: project_chores_points_philosophy):
  *   - Obligatory daily things (homework, brushing teeth, own dishes) are NOT

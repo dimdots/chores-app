@@ -1,77 +1,69 @@
 import Link from "next/link";
 import { requireChild } from "@/lib/auth/permissions";
-import { listAssignedTasksForChildToday } from "@/lib/services/tasks";
-import { generateRecurringTasksIfNeeded } from "@/lib/services/tasks";
-import { TaskTileGroup } from "@/components/child/task-tile-group";
-import type { ChildTaskTileData } from "@/components/child/task-tile";
-import { EmptyState } from "@/components/ui/empty-state";
+import { listCategories } from "@/lib/services/categories";
+import { DEFAULT_TASK_PRESETS } from "@/config/defaults";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PresetPicker, type ResolvedPreset } from "@/components/parent/preset-picker";
+import {
+  createChildTasksFromPresetsAction,
+  completePresetAsChildAction,
+} from "@/app/(app)/child/tasks/actions";
 import { t } from "@/lib/i18n/ru";
 
 export const dynamic = "force-dynamic";
 
+// "Tasks" tab on the kid side is the preset picker — that's where the kid
+// either credits points for an ad-hoc thing they just did ("Готово") or pushes
+// a preset onto their own todo queue (bulk-add at the bottom). The previous
+// today's-todo list lives on the dashboard ("Сегодня") so we don't need a
+// duplicate here. Custom (non-preset) tasks are still creatable via the
+// "Новое" link in the header.
 export default async function ChildTasks() {
-  const s = await requireChild();
-  await generateRecurringTasksIfNeeded(s.childId);
-  const tasks = await listAssignedTasksForChildToday(s.childId);
+  await requireChild();
+  const categories = await listCategories({ activeOnly: true });
 
-  const toTile = (task: (typeof tasks)[number]): ChildTaskTileData => ({
-    id: task.id,
-    title: task.taskDefinition.title,
-    category: task.taskDefinition.category.name,
-    points: task.taskDefinition.points,
-    status: task.status,
-    rejectionReason: task.rejectionReason,
+  const byName = new Map(categories.map((c) => [c.name, c]));
+  const fallback = categories[0];
+
+  const resolved: ResolvedPreset[] = DEFAULT_TASK_PRESETS.flatMap((p, idx) => {
+    const cat = byName.get(p.categoryName) ?? fallback;
+    if (!cat) return [];
+    return [
+      {
+        key: `${p.group}::${p.title}::${idx}`,
+        title: p.title,
+        description: p.description,
+        group: p.group,
+        categoryId: cat.id,
+        categoryName: cat.name,
+        defaultPoints: p.points,
+      },
+    ];
   });
 
-  // "To do" = anything not yet settled. PENDING_APPROVAL is legacy (the pivot
-  // auto-approves), but we keep it grouped with "to do" so any old rows from
-  // before the migration don't vanish into a gap.
-  const todo = tasks
-    .filter((task) => task.status === "ASSIGNED" || task.status === "PENDING_APPROVAL")
-    .map(toTile);
-  // "Done today" = what the kid has already completed. Recurring tasks keep
-  // scheduledDate = today; unscheduled one-offs are filtered in the service
-  // to only include items approved today (no cross-day bleed).
-  const done = tasks.filter((task) => task.status === "APPROVED").map(toTile);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{t.tasks.list}</h1>
-        <div className="flex gap-2">
-          <Link href="/child/tasks/presets">
-            <Button size="sm" variant="secondary">
-              {t.tasks.presets}
-            </Button>
-          </Link>
-          <Link href="/child/tasks/new">
-            <Button size="sm">{t.tasks.childNew}</Button>
-          </Link>
-        </div>
+        <h1 className="text-xl font-semibold">{t.tasks.presetsTitle}</h1>
+        <Link href="/child/tasks/new">
+          <Button size="sm">{t.tasks.childNew}</Button>
+        </Link>
       </div>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
-          {t.tasks.todoHeading}
-        </h2>
-        {todo.length === 0 ? (
-          <EmptyState title={t.tasks.todoEmpty} />
-        ) : (
-          <TaskTileGroup scope="child-todo" tasks={todo} />
-        )}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
-          {t.tasks.doneTodayHeading}
-        </h2>
-        {done.length === 0 ? (
-          <EmptyState title={t.tasks.doneTodayEmpty} />
-        ) : (
-          <TaskTileGroup scope="child-done" tasks={done} dimmed />
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.tasks.presets}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PresetPicker
+            presets={resolved}
+            action={createChildTasksFromPresetsAction}
+            completeAction={completePresetAsChildAction}
+            redirectTo="/child/dashboard"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
