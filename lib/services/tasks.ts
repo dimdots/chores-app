@@ -13,13 +13,26 @@ import { t } from "@/lib/i18n/ru";
 
 // ---------- Definitions ----------
 
-export async function createTaskDefinition(input: unknown, actorUserId: string) {
+export async function createTaskDefinition(
+  familyId: string,
+  input: unknown,
+  actorUserId: string,
+) {
   const parsed = taskDefinitionCreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const data = parsed.data;
 
+  // Defense: the category must belong to the same family — otherwise a
+  // forged categoryId from another tenant slips through the FK.
+  const cat = await prisma.taskCategory.findFirst({
+    where: { id: data.categoryId, familyId },
+    select: { id: true },
+  });
+  if (!cat) throw new Error(t.errors.validation);
+
   return prisma.taskDefinition.create({
     data: {
+      familyId,
       title: data.title,
       description: data.description ?? null,
       categoryId: data.categoryId,
@@ -35,7 +48,7 @@ export async function createTaskDefinition(input: unknown, actorUserId: string) 
   });
 }
 
-export async function updateTaskDefinition(input: unknown) {
+export async function updateTaskDefinition(familyId: string, input: unknown) {
   const parsed = taskDefinitionUpdateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { id, recurrenceDays, ...rest } = parsed.data;
@@ -47,26 +60,43 @@ export async function updateTaskDefinition(input: unknown) {
   if (rest.recurrenceType && rest.recurrenceType !== "WEEKDAYS") {
     data.recurrenceDays = null;
   }
-  return prisma.taskDefinition.update({ where: { id }, data });
+  const res = await prisma.taskDefinition.updateMany({
+    where: { id, familyId },
+    data,
+  });
+  if (res.count === 0) throw new Error(t.errors.taskNotFound);
+  return prisma.taskDefinition.findUnique({ where: { id } });
 }
 
-export async function archiveTaskDefinition(id: string) {
-  return prisma.taskDefinition.update({ where: { id }, data: { isActive: false } });
+export async function archiveTaskDefinition(familyId: string, id: string) {
+  const res = await prisma.taskDefinition.updateMany({
+    where: { id, familyId },
+    data: { isActive: false },
+  });
+  if (res.count === 0) throw new Error(t.errors.taskNotFound);
+  return prisma.taskDefinition.findUnique({ where: { id } });
 }
 
-export async function restoreTaskDefinition(id: string) {
-  return prisma.taskDefinition.update({ where: { id }, data: { isActive: true } });
+export async function restoreTaskDefinition(familyId: string, id: string) {
+  const res = await prisma.taskDefinition.updateMany({
+    where: { id, familyId },
+    data: { isActive: true },
+  });
+  if (res.count === 0) throw new Error(t.errors.taskNotFound);
+  return prisma.taskDefinition.findUnique({ where: { id } });
 }
 
 /**
  * Hard-delete a task definition and every AssignedTask row that references it.
  * ActivityLog entries are intentionally NOT touched — they stay around as the
  * historical record of points earned (balances were already applied).
- *
- * Used for housekeeping when the parent no longer wants a task around at all
- * (distinct from `archiveTaskDefinition`, which is a soft disable).
  */
-export async function deleteTaskDefinition(id: string) {
+export async function deleteTaskDefinition(familyId: string, id: string) {
+  const def = await prisma.taskDefinition.findFirst({
+    where: { id, familyId },
+    select: { id: true },
+  });
+  if (!def) throw new Error(t.errors.taskNotFound);
   return prisma.$transaction([
     prisma.assignedTask.deleteMany({ where: { taskDefinitionId: id } }),
     prisma.taskDefinition.delete({ where: { id } }),
@@ -75,13 +105,17 @@ export async function deleteTaskDefinition(id: string) {
 
 // ---------- Assignments ----------
 
-export async function assignTaskToChild(input: unknown) {
+export async function assignTaskToChild(familyId: string, input: unknown) {
   const parsed = assignTaskSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { taskDefinitionId, childId, dueDate, scheduledDate } = parsed.data;
-  const def = await prisma.taskDefinition.findUnique({ where: { id: taskDefinitionId } });
+  const def = await prisma.taskDefinition.findFirst({
+    where: { id: taskDefinitionId, familyId },
+  });
   if (!def || !def.isActive) throw new Error(t.errors.taskNotFound);
-  const child = await prisma.childProfile.findUnique({ where: { id: childId } });
+  const child = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+  });
   if (!child) throw new Error(t.errors.childNotFound);
 
   const sched = scheduledDate ?? startOfLocalDay();
@@ -111,13 +145,23 @@ export async function assignTaskToChild(input: unknown) {
 /**
  * Idempotently generate today's recurring AssignedTask rows for one child.
  * Call this from dashboards to materialize tasks lazily — no cron needed.
+ * Scoped to the child's family so cross-family task definitions can't leak
+ * in via this path.
  */
 export async function generateRecurringTasksIfNeeded(childId: string, now: Date = new Date()) {
   const today = startOfLocalDay(now);
   const weekday = localWeekday(now); // 0..6 Sun..Sat
 
+  const child = await prisma.childProfile.findUnique({
+    where: { id: childId },
+    select: { user: { select: { familyId: true } } },
+  });
+  if (!child) return 0;
+  const familyId = child.user.familyId;
+
   const defs = await prisma.taskDefinition.findMany({
     where: {
+      familyId,
       isActive: true,
       recurrenceType: { in: ["DAILY", "WEEKLY", "WEEKDAYS"] },
     },
@@ -168,11 +212,11 @@ export function shouldGenerateOn(def: TaskDefinition, now: Date, weekday: number
 /**
  * Child marks an assigned task complete. Shared-trust model (pivot 2026-04-19):
  * we jump straight to APPROVED, apply the points delta, and update the streak
- * inside a single transaction. No parent approval gate. Family members react
- * on the resulting activity-feed entry instead of gating points.
+ * inside a single transaction. No parent approval gate.
  *
- * The legacy `approveTask` / `rejectTask` paths remain untouched in case we
- * ever need to reintroduce approvals as an opt-in mode.
+ * The cross-family guard is the assertion that `assigned.childId === childId`
+ * — the session's childId is authoritative, and the action layer already
+ * verified the child belongs to the caller's family via assertChildInFamily.
  */
 export async function markTaskCompletedByChild(
   assignedTaskId: string,
@@ -188,19 +232,17 @@ export async function markTaskCompletedByChild(
 }
 
 /**
- * Parent-side equivalent of `markTaskCompletedByChild`. The shared-trust
- * pivot lets either side check off a task — useful when the parent is the
- * one who actually saw it done (e.g., trash taken out under their nose) and
- * doesn't want to open the kid's account just to record it. The childId
- * comes from the assigned task itself; no separate match check is needed
- * because the parent already passed `assertParent` at the action layer.
+ * Parent-side equivalent of `markTaskCompletedByChild`. The childId comes
+ * from the assigned task itself; the caller passes `familyId` so we refuse
+ * to credit a task that belongs to another family.
  */
 export async function markTaskCompletedByParent(
+  familyId: string,
   assignedTaskId: string,
   actorUserId: string,
 ) {
-  const assigned = await prisma.assignedTask.findUnique({
-    where: { id: assignedTaskId },
+  const assigned = await prisma.assignedTask.findFirst({
+    where: { id: assignedTaskId, taskDefinition: { familyId } },
     include: { taskDefinition: true },
   });
   if (!assigned) throw new Error(t.errors.taskNotFound);
@@ -208,22 +250,21 @@ export async function markTaskCompletedByParent(
 }
 
 /**
- * One-shot "I just did this" credit from the preset list. Creates a fresh
- * one-off TaskDefinition (recurrence NONE), an AssignedTask in ASSIGNED, and
- * immediately marks it APPROVED — all in a single transaction so the points
- * delta, streak bump, and audit row stay consistent. Used by the per-row
- * "Готово" button on the preset picker; lets the kid (or parent) credit
- * points for an ad-hoc thing without first cluttering the todo list with a
- * row that would just be checked off seconds later.
+ * One-shot "I just did this" credit from the preset list.
  */
 export async function createAndCompleteAdHocTask(
+  familyId: string,
   input: { title: string; description?: string | null; categoryId: string; points: number },
   childId: string,
   actorUserId: string,
 ) {
-  const child = await prisma.childProfile.findUnique({ where: { id: childId } });
+  const child = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+  });
   if (!child) throw new Error(t.errors.childNotFound);
-  const cat = await prisma.taskCategory.findUnique({ where: { id: input.categoryId } });
+  const cat = await prisma.taskCategory.findFirst({
+    where: { id: input.categoryId, familyId },
+  });
   if (!cat) throw new Error(t.errors.validation);
   const safePoints = Math.max(0, Math.floor(input.points));
   const now = new Date();
@@ -231,6 +272,7 @@ export async function createAndCompleteAdHocTask(
   return prisma.$transaction(async (tx) => {
     const def = await tx.taskDefinition.create({
       data: {
+        familyId,
         title: input.title,
         description: input.description ?? null,
         categoryId: input.categoryId,
@@ -269,10 +311,6 @@ export async function createAndCompleteAdHocTask(
   });
 }
 
-// Shared completion path used by both child- and parent-initiated marks.
-// Status guard + points delta + streak bump happen in a single transaction
-// so a half-applied row never escapes (e.g., points credited but task still
-// ASSIGNED, or vice versa).
 async function _completeAssignedTask(
   assigned: { id: string; childId: string; status: string; taskDefinition: { points: number } },
   actorUserId: string,
@@ -288,7 +326,6 @@ async function _completeAssignedTask(
         status: "APPROVED",
         completionRequestedAt: now,
         approvedAt: now,
-        // approvedById is the actor (kid or parent) for the audit trail.
         approvedById: actorUserId,
         pointsAwarded: pts,
       },
@@ -309,15 +346,16 @@ async function _completeAssignedTask(
   });
 }
 
-// ---------- Parent approvals ----------
+// ---------- Parent approvals (legacy / parked path) ----------
 
 export async function approveTask(
+  familyId: string,
   assignedTaskId: string,
   actorUserId: string,
 ) {
   return prisma.$transaction(async (tx) => {
-    const assigned = await tx.assignedTask.findUnique({
-      where: { id: assignedTaskId },
+    const assigned = await tx.assignedTask.findFirst({
+      where: { id: assignedTaskId, taskDefinition: { familyId } },
       include: { taskDefinition: true, child: true },
     });
     if (!assigned) throw new Error(t.errors.taskNotFound);
@@ -352,12 +390,15 @@ export async function approveTask(
 }
 
 export async function rejectTask(
+  familyId: string,
   assignedTaskId: string,
   reason: string | null,
   actorUserId: string,
 ) {
   return prisma.$transaction(async (tx) => {
-    const assigned = await tx.assignedTask.findUnique({ where: { id: assignedTaskId } });
+    const assigned = await tx.assignedTask.findFirst({
+      where: { id: assignedTaskId, taskDefinition: { familyId } },
+    });
     if (!assigned) throw new Error(t.errors.taskNotFound);
     if (assigned.status !== "PENDING_APPROVAL") throw new Error(t.errors.alreadyProcessed);
 
@@ -372,6 +413,7 @@ export async function rejectTask(
     });
     await logEvent(
       {
+        familyId,
         actorUserId,
         childId: assigned.childId,
         eventType: "TASK_REJECTED",
@@ -387,22 +429,23 @@ export async function rejectTask(
 
 // ---------- Queries ----------
 
-export async function listTaskDefinitions(opts: { includeInactive?: boolean } = {}) {
+export async function listTaskDefinitions(
+  familyId: string,
+  opts: { includeInactive?: boolean } = {},
+) {
   return prisma.taskDefinition.findMany({
-    where: opts.includeInactive ? undefined : { isActive: true },
+    where: { familyId, ...(opts.includeInactive ? {} : { isActive: true }) },
     include: {
       category: true,
-      // Creator role is surfaced so the parent list can flag kid-added tasks
-      // (shared-trust model: kids add tasks themselves, parents can see them).
       createdBy: { select: { id: true, role: true, name: true } },
     },
     orderBy: [{ isActive: "desc" }, { title: "asc" }],
   });
 }
 
-export async function listPendingApprovals() {
+export async function listPendingApprovals(familyId: string) {
   return prisma.assignedTask.findMany({
-    where: { status: "PENDING_APPROVAL" },
+    where: { status: "PENDING_APPROVAL", taskDefinition: { familyId } },
     include: {
       taskDefinition: { include: { category: true } },
       child: { include: { user: true } },
@@ -413,12 +456,6 @@ export async function listPendingApprovals() {
 
 export async function listAssignedTasksForChildToday(childId: string) {
   const today = startOfLocalDay();
-  // Returns three groups that all belong on today's "Tasks" tab:
-  //   1. Tasks scheduled for today (any status — a recurring task auto-approved
-  //      earlier today should still appear in the "done" list below the fold).
-  //   2. Open one-off tasks with no schedule (ASSIGNED / legacy PENDING_APPROVAL).
-  //   3. One-off tasks that were approved today (so kids see their own
-  //      unscheduled task move from "to do" to "done" without disappearing).
   return prisma.assignedTask.findMany({
     where: {
       childId,

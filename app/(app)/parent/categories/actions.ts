@@ -22,8 +22,8 @@ export async function createCategoryAction(input: {
   sortOrder?: number;
 }): Promise<Res> {
   try {
-    await assertParent();
-    const c = await createCategory(input);
+    const s = await assertParent();
+    const c = await createCategory(s.familyId, input);
     revalidate();
     return { ok: true, id: c.id };
   } catch (e) {
@@ -38,8 +38,8 @@ export async function updateCategoryAction(input: {
   isActive?: boolean;
 }): Promise<Res> {
   try {
-    await assertParent();
-    await updateCategory(input);
+    const s = await assertParent();
+    await updateCategory(s.familyId, input);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -49,8 +49,8 @@ export async function updateCategoryAction(input: {
 
 export async function archiveCategoryAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await archiveCategory(id);
+    const s = await assertParent();
+    await archiveCategory(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {

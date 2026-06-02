@@ -1,15 +1,9 @@
 /**
- * Integration tests for the core task + points flow (post-pivot 2026-04-19:
- * task completion auto-awards points; reward requests auto-fulfill; reactions
- * replace the approval gate).
+ * Integration tests for the core task + points flow (post-pivot 2026-04-19,
+ * post-multi-tenant pivot 2026-05-28: every fixture lives inside its own
+ * Family so tests don't leak across each other).
  *
- * Skips cleanly if DATABASE_URL isn't set or the DB isn't reachable, so this
- * file is safe to include in a default `npm run test` when no local DB is
- * configured.
- *
- * Each test uses a uniquely-named parent + child so parallel or repeat runs
- * don't collide. Tests do NOT wrap in a transaction because the services
- * themselves open transactions.
+ * Skips cleanly if DATABASE_URL isn't set or the DB isn't reachable.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -29,6 +23,7 @@ import { toggleReaction } from "@/lib/services/reactions";
 const HAS_DB = Boolean(process.env.DATABASE_URL);
 
 type Fixture = {
+  familyId: string;
   parentId: string;
   childId: string;
   childUserId: string;
@@ -37,18 +32,29 @@ type Fixture = {
 
 async function makeFixture(): Promise<Fixture> {
   const uid = randomUUID().slice(0, 8);
+  const family = await prisma.family.create({
+    data: { name: `Family-${uid}`, locale: "ru" },
+  });
   const parent = await createParentAccount({
+    familyId: family.id,
     name: `Parent-${uid}`,
     email: `parent-${uid}@test.local`,
     password: "testpass12345",
   });
   const { userId: childUserId, childId } = await createChild({
+    familyId: family.id,
     name: `Child-${uid}`,
     displayName: `Kid-${uid}`,
     pin: "123456",
   });
-  const cat = await createCategory({ name: `Cat-${uid}`, sortOrder: 0 });
-  return { parentId: parent.id, childId, childUserId, categoryId: cat.id };
+  const cat = await createCategory(family.id, { name: `Cat-${uid}`, sortOrder: 0 });
+  return {
+    familyId: family.id,
+    parentId: parent.id,
+    childId,
+    childUserId,
+    categoryId: cat.id,
+  };
 }
 
 const d = HAS_DB ? describe : describe.skip;
@@ -66,6 +72,7 @@ d("integration: task completion updates balance, streak, and level", () => {
 
   it("mark → auto-approves and awards points, advances streak", async () => {
     const def = await createTaskDefinition(
+      fx.familyId,
       {
         title: "Clean room",
         categoryId: fx.categoryId,
@@ -74,7 +81,7 @@ d("integration: task completion updates balance, streak, and level", () => {
       },
       fx.parentId,
     );
-    const assigned = await assignTaskToChild({
+    const assigned = await assignTaskToChild(fx.familyId, {
       taskDefinitionId: def.id,
       childId: fx.childId,
     });
@@ -85,7 +92,6 @@ d("integration: task completion updates balance, streak, and level", () => {
     expect(child.currentPoints).toBe(25);
     expect(child.currentStreak).toBe(1);
 
-    // Sanity: the AssignedTask landed directly in APPROVED — no PENDING stop.
     const row = await prisma.assignedTask.findUniqueOrThrow({ where: { id: assigned!.id } });
     expect(row.status).toBe("APPROVED");
     expect(row.pointsAwarded).toBe(25);
@@ -93,6 +99,7 @@ d("integration: task completion updates balance, streak, and level", () => {
 
   it("double-completion is a no-op (throws alreadyProcessed)", async () => {
     const def = await createTaskDefinition(
+      fx.familyId,
       {
         title: "Empty bin",
         categoryId: fx.categoryId,
@@ -101,7 +108,7 @@ d("integration: task completion updates balance, streak, and level", () => {
       },
       fx.parentId,
     );
-    const assigned = await assignTaskToChild({
+    const assigned = await assignTaskToChild(fx.familyId, {
       taskDefinitionId: def.id,
       childId: fx.childId,
     });
@@ -112,7 +119,6 @@ d("integration: task completion updates balance, streak, and level", () => {
     await expect(
       markTaskCompletedByChild(assigned!.id, fx.childId, fx.childUserId),
     ).rejects.toThrow();
-    // No points added on the second call.
     const again = await prisma.childProfile.findUniqueOrThrow({
       where: { id: fx.childId },
     });
@@ -146,6 +152,7 @@ d("integration: task completion updates balance, streak, and level", () => {
       orderBy: { createdAt: "desc" },
     });
     expect(log?.pointsDelta).toBe(15);
+    expect(log?.familyId).toBe(fx.familyId);
   });
 });
 
@@ -154,7 +161,6 @@ d("integration: reward request auto-fulfills and debits points", () => {
 
   beforeAll(async () => {
     fx = await makeFixture();
-    // give the child enough to afford a reward
     await addManualAdjustment(
       { childId: fx.childId, value: 100, reason: "seed" },
       fx.parentId,
@@ -167,6 +173,7 @@ d("integration: reward request auto-fulfills and debits points", () => {
 
   it("request auto-fulfills: deducts cost and lands APPROVED in one step", async () => {
     const reward = await createReward(
+      fx.familyId,
       { title: "Ice cream", cost: 40 },
       fx.parentId,
     );
@@ -174,6 +181,7 @@ d("integration: reward request auto-fulfills and debits points", () => {
       where: { id: fx.childId },
     });
     const req = await requestReward(
+      fx.familyId,
       { rewardId: reward.id },
       fx.childId,
       fx.childUserId,
@@ -183,7 +191,6 @@ d("integration: reward request auto-fulfills and debits points", () => {
     });
     expect(after.currentPoints).toBe(before.currentPoints - 40);
 
-    // The RewardRequest skips PENDING and lands directly in APPROVED.
     const row = await prisma.rewardRequest.findUniqueOrThrow({
       where: { id: req.id },
     });
@@ -193,48 +200,66 @@ d("integration: reward request auto-fulfills and debits points", () => {
 
   it("insufficient balance blocks auto-fulfillment", async () => {
     const reward = await createReward(
+      fx.familyId,
       { title: "Expensive toy", cost: 10_000 },
       fx.parentId,
     );
     await expect(
-      requestReward({ rewardId: reward.id }, fx.childId, fx.childUserId),
+      requestReward(fx.familyId, { rewardId: reward.id }, fx.childId, fx.childUserId),
     ).rejects.toThrow();
   });
 
   it("quantityLimit is respected: the second request fails", async () => {
     const reward = await createReward(
+      fx.familyId,
       { title: "Limited sticker", cost: 5, quantityLimit: 1 },
       fx.parentId,
     );
-    // First request consumes the only slot and auto-fulfills.
     await requestReward(
+      fx.familyId,
       { rewardId: reward.id },
       fx.childId,
       fx.childUserId,
     );
-    // Second request must be rejected because the quota is exhausted.
     await expect(
-      requestReward({ rewardId: reward.id }, fx.childId, fx.childUserId),
+      requestReward(fx.familyId, { rewardId: reward.id }, fx.childId, fx.childUserId),
     ).rejects.toThrow();
   });
 
   it("reactions: toggling adds then removes for the same user/emoji/log", async () => {
-    // Find a recent activity log entry for this child to react to.
     const log = await prisma.activityLog.findFirstOrThrow({
       where: { childId: fx.childId, eventType: "REWARD_APPROVED" },
       orderBy: { createdAt: "desc" },
     });
     const first = await toggleReaction({
+      familyId: fx.familyId,
       activityLogId: log.id,
       userId: fx.parentId,
       emoji: "🎉",
     });
     expect(first.present).toBe(true);
     const second = await toggleReaction({
+      familyId: fx.familyId,
       activityLogId: log.id,
       userId: fx.parentId,
       emoji: "🎉",
     });
     expect(second.present).toBe(false);
+  });
+
+  it("cross-family reactions are rejected", async () => {
+    const other = await makeFixture();
+    const log = await prisma.activityLog.findFirstOrThrow({
+      where: { childId: fx.childId, eventType: "REWARD_APPROVED" },
+      orderBy: { createdAt: "desc" },
+    });
+    await expect(
+      toggleReaction({
+        familyId: other.familyId,
+        activityLogId: log.id,
+        userId: other.parentId,
+        emoji: "🎉",
+      }),
+    ).rejects.toThrow();
   });
 });

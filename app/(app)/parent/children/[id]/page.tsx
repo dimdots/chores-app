@@ -25,9 +25,9 @@ export default async function ChildDetailPage({
 }: {
   params: { id: string };
 }) {
-  await requireParent();
-  const child = await prisma.childProfile.findUnique({
-    where: { id: params.id },
+  const s = await requireParent();
+  const child = await prisma.childProfile.findFirst({
+    where: { id: params.id, user: { familyId: s.familyId } },
     include: { user: true },
   });
   if (!child) notFound();

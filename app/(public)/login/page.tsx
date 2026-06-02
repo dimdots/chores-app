@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
+import { getSession, getDeviceFamilyId } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
 import { LoginPicker } from "./login-form";
@@ -12,19 +12,27 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage() {
   const session = await getSession();
   if (session) {
-    // Until Phase B lands, parents and kids still route to their dashboards.
     redirect(session.role === "PARENT" ? "/parent/dashboard" : "/child/dashboard");
   }
 
-  // Anyone with a PIN set — parent or child — appears in the picker.
-  const profiles = await prisma.user.findMany({
-    where: { isActive: true, pinHash: { not: null } },
-    include: { childProfile: true },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
-  });
+  // The picker is scoped to this device's family (set by the most recent
+  // successful login or signup on this browser). First-time visitors with no
+  // cookie see an empty picker + the email-login fallback link.
+  const familyId = getDeviceFamilyId();
 
-  const hasAnyParent =
-    (await prisma.user.count({ where: { role: "PARENT", isActive: true } })) > 0;
+  const profiles = familyId
+    ? await prisma.user.findMany({
+        where: { familyId, isActive: true, pinHash: { not: null } },
+        include: { childProfile: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      })
+    : [];
+
+  const hasAnyParent = familyId
+    ? (await prisma.user.count({
+        where: { familyId, role: "PARENT", isActive: true },
+      })) > 0
+    : false;
 
   const items = profiles.map((u) => ({
     id: u.id,
@@ -46,7 +54,7 @@ export default async function LoginPage() {
                 description={
                   hasAnyParent
                     ? "Войдите по email и задайте PIN в настройках."
-                    : "Начните с /setup, чтобы создать первого родителя."
+                    : "Войдите по email или используйте ссылку-приглашение."
                 }
               />
             ) : (

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
+import { getSession, getDeviceFamilyId } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
 import { ChildLoginForm } from "./child-login-form";
@@ -15,11 +15,14 @@ export default async function ChildLoginPage() {
     redirect(session.role === "PARENT" ? "/parent/dashboard" : "/child/dashboard");
   }
 
-  const children = await prisma.user.findMany({
-    where: { role: "CHILD", isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const familyId = getDeviceFamilyId();
+  const children = familyId
+    ? await prisma.user.findMany({
+        where: { familyId, role: "CHILD", isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-50">

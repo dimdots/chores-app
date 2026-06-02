@@ -2,17 +2,17 @@ import { NextRequest } from "next/server";
 import {
   csvResponse,
   parseExportFilter,
-  requireParentForExport,
+  requireParentSessionForExport,
 } from "../_shared";
 import { exportCsvPoints } from "@/lib/services/reports";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireParentForExport();
-  if (unauthorized) return unauthorized;
+  const auth = await requireParentSessionForExport();
+  if (auth.response) return auth.response;
   const filter = parseExportFilter(req);
-  const csv = await exportCsvPoints(filter);
+  const csv = await exportCsvPoints({ ...filter, familyId: auth.session.familyId });
   return csvResponse(csv, `points-${today()}.csv`);
 }
 

@@ -28,7 +28,7 @@ export async function createRewardAction(input: {
 }): Promise<Res> {
   try {
     const s = await assertParent();
-    const r = await createReward(input, s.userId);
+    const r = await createReward(s.familyId, input, s.userId);
     revalidate();
     return { ok: true, id: r.id };
   } catch (e) {
@@ -46,8 +46,8 @@ export async function updateRewardAction(input: {
   isActive?: boolean;
 }): Promise<Res> {
   try {
-    await assertParent();
-    await updateReward(input);
+    const s = await assertParent();
+    await updateReward(s.familyId, input);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -57,8 +57,8 @@ export async function updateRewardAction(input: {
 
 export async function archiveRewardAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await archiveReward(id);
+    const s = await assertParent();
+    await archiveReward(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -68,8 +68,8 @@ export async function archiveRewardAction(id: string): Promise<Res> {
 
 export async function restoreRewardAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await restoreReward(id);
+    const s = await assertParent();
+    await restoreReward(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {

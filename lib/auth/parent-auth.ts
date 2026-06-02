@@ -39,8 +39,17 @@ export async function loginParent(input: unknown): Promise<{ userId: string; nam
     throw new LoginError("Invalid credentials", "INVALID");
   }
   recordSuccess(key);
-  await setSessionCookie({ userId: user.id, role: "PARENT", name: user.name });
-  await logEvent({ actorUserId: user.id, eventType: "LOGIN_PARENT" });
+  await setSessionCookie({
+    userId: user.id,
+    familyId: user.familyId,
+    role: "PARENT",
+    name: user.name,
+  });
+  await logEvent({
+    familyId: user.familyId,
+    actorUserId: user.id,
+    eventType: "LOGIN_PARENT",
+  });
   return { userId: user.id, name: user.name };
 }
 
@@ -48,8 +57,9 @@ export async function logoutParent(): Promise<void> {
   clearSessionCookie();
 }
 
-/** Parent-only: create another parent account. */
+/** Parent-only: create another parent account inside the caller's family. */
 export async function createParentAccount(args: {
+  familyId: string;
   name: string;
   email: string;
   password: string;
@@ -60,6 +70,7 @@ export async function createParentAccount(args: {
   if (existing) throw new Error("Email already in use");
   const created = await prisma.user.create({
     data: {
+      familyId: args.familyId,
       role: "PARENT",
       name: args.name.trim(),
       email,

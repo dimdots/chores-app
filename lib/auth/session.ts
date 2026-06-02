@@ -4,6 +4,12 @@ import { appConfig } from "@/config/app";
 import type { SessionPayload } from "@/types/session";
 
 const COOKIE_NAME = "fcr_session";
+// Separate, longer-lived cookie that pins this device to a family. Set on
+// successful login or signup so the login picker only shows that family's
+// PIN profiles to people who've used the device before. Cleared only by
+// explicit "switch family" (not currently exposed in UI).
+const FAMILY_COOKIE_NAME = "fcr_family";
+const FAMILY_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 function getSecretKey(): Uint8Array {
   const raw = process.env.AUTH_SECRET;
@@ -34,16 +40,20 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
     const { payload } = await jwtVerify(token, getSecretKey());
     if (
       typeof payload.userId === "string" &&
+      typeof payload.familyId === "string" &&
       (payload.role === "PARENT" || payload.role === "CHILD") &&
       typeof payload.name === "string"
     ) {
       return {
         userId: payload.userId,
+        familyId: payload.familyId,
         role: payload.role,
         name: payload.name,
         childId: typeof payload.childId === "string" ? payload.childId : undefined,
       };
     }
+    // Token predates the multi-tenant pivot — refuse it so the user is forced
+    // to log in again and pick up a fresh, family-scoped session.
     return null;
   } catch {
     return null;
@@ -62,6 +72,16 @@ export async function setSessionCookie(payload: SessionPayload): Promise<void> {
     path: "/",
     maxAge: seconds,
   });
+  // Pin this device to the family so the PIN picker can scope its list.
+  cookies().set({
+    name: FAMILY_COOKIE_NAME,
+    value: payload.familyId,
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: FAMILY_COOKIE_MAX_AGE,
+  });
 }
 
 export function clearSessionCookie(): void {
@@ -74,6 +94,13 @@ export function clearSessionCookie(): void {
     path: "/",
     maxAge: 0,
   });
+  // Intentionally do NOT clear fcr_family on logout — the next visitor on
+  // this device almost certainly belongs to the same family.
+}
+
+/** Read the per-device family pin set by the last login on this browser. */
+export function getDeviceFamilyId(): string | null {
+  return cookies().get(FAMILY_COOKIE_NAME)?.value ?? null;
 }
 
 /** Read the current session, verifying the JWT. Returns null if none. */

@@ -9,8 +9,10 @@ import { t } from "@/lib/i18n/ru";
 export const dynamic = "force-dynamic";
 
 export default async function EditRewardPage({ params }: { params: { id: string } }) {
-  await requireParent();
-  const reward = await prisma.reward.findUnique({ where: { id: params.id } });
+  const s = await requireParent();
+  const reward = await prisma.reward.findFirst({
+    where: { id: params.id, familyId: s.familyId },
+  });
   if (!reward) notFound();
 
   return (

@@ -37,13 +37,14 @@ export default async function ReportsPage({
 }: {
   searchParams?: { childId?: string; from?: string; to?: string };
 }) {
-  await requireParent();
+  const s = await requireParent();
   const childId = searchParams?.childId?.trim() || "";
   const from = parseDate(searchParams?.from);
   const to = parseDate(searchParams?.to);
 
   const [children, weekStart] = await Promise.all([
     prisma.childProfile.findMany({
+      where: { user: { familyId: s.familyId } },
       include: { user: true },
       orderBy: { displayName: "asc" },
     }),
@@ -58,9 +59,10 @@ export default async function ReportsPage({
         getWeeklyPointsSeries(c.id, weekStart),
       ),
     ),
-    getMostCompletedTasks(from ?? weekStart, 10),
-    getRewardHistory(activeChildId || undefined, 50),
+    getMostCompletedTasks(s.familyId, from ?? weekStart, 10),
+    getRewardHistory(s.familyId, activeChildId || undefined, 50),
     getActivityHistory({
+      familyId: s.familyId,
       childId: activeChildId || undefined,
       from,
       to,

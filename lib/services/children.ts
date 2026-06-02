@@ -13,14 +13,16 @@ import { summarizeReactionsForLogs, type ReactionSummary } from "./reactions";
 
 // ---------- Children administration ----------
 
-export async function listChildren() {
+export async function listChildren(familyId: string) {
   return prisma.childProfile.findMany({
+    where: { user: { familyId } },
     include: { user: true },
     orderBy: [{ user: { isActive: "desc" } }, { displayName: "asc" }],
   });
 }
 
 export async function createChild(args: {
+  familyId: string;
   name: string;
   displayName?: string;
   pin: string;
@@ -29,6 +31,7 @@ export async function createChild(args: {
   const pinHash = await hashPin(args.pin);
   const user = await prisma.user.create({
     data: {
+      familyId: args.familyId,
       role: "CHILD",
       name: args.name.trim(),
       pinHash,
@@ -42,17 +45,22 @@ export async function createChild(args: {
   return { userId: user.id, childId: user.childProfile!.id };
 }
 
-export async function setChildActive(childId: string, active: boolean) {
-  const child = await prisma.childProfile.findUnique({ where: { id: childId } });
+export async function setChildActive(familyId: string, childId: string, active: boolean) {
+  const child = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+  });
   if (!child) throw new Error(t.errors.childNotFound);
   return prisma.user.update({ where: { id: child.userId }, data: { isActive: active } });
 }
 
 /** Cycle reset — records an ActivityLog event; no destructive mutation. */
-export async function resetCycle(childId: string, actorUserId: string) {
-  const child = await prisma.childProfile.findUnique({ where: { id: childId } });
+export async function resetCycle(familyId: string, childId: string, actorUserId: string) {
+  const child = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+  });
   if (!child) throw new Error(t.errors.childNotFound);
   await logEvent({
+    familyId,
     actorUserId,
     childId,
     eventType: "CYCLE_RESET",
@@ -67,16 +75,23 @@ export type FeedItem = {
   eventType: string;
   pointsDelta: number;
   createdAt: Date;
-  // Resolved title of the referenced task/reward, when available. Empty
-  // string for events without a natural title (bonuses, cycle resets).
   referenceLabel: string;
   reactions: ReactionSummary;
 };
 
-export async function getChildDashboardData(childId: string, viewerUserId: string) {
-  // Materialize today's recurring tasks lazily.
+export async function getChildDashboardData(
+  familyId: string,
+  childId: string,
+  viewerUserId: string,
+) {
+  // Confirm the child belongs to the caller's family before doing any work.
+  const ownership = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+    select: { id: true },
+  });
+  if (!ownership) throw new Error(t.errors.childNotFound);
+
   await generateRecurringTasksIfNeeded(childId);
-  // Drop a dangling streak if the child skipped a day or more.
   await resetStreakIfNeeded(childId);
 
   const [profile, todayTasks, rewards, recent] = await Promise.all([
@@ -88,6 +103,7 @@ export async function getChildDashboardData(childId: string, viewerUserId: strin
     listAvailableRewardsForChild(childId),
     prisma.activityLog.findMany({
       where: {
+        familyId,
         childId,
         eventType: { in: ["TASK_APPROVED", "REWARD_APPROVED", "ADJUSTMENT_BONUS"] },
       },
@@ -113,8 +129,6 @@ export async function getChildDashboardData(childId: string, viewerUserId: strin
     reactions: reactionMap.get(r.id) ?? { counts: {}, mine: [] },
   }));
 
-  // Level progress is based on lifetimePoints (cumulative earned) so that
-  // claiming a reward doesn't drop the level or reset the progress bar.
   const levelInfo = getLevelInfo(profile.lifetimePoints);
   return { profile, levelInfo, todayTasks, rewards, recent: feed };
 }
@@ -123,15 +137,17 @@ export type ParentFeedItem = FeedItem & {
   child: { id: string; displayName: string } | null;
 };
 
-export async function getParentDashboardData(viewerUserId: string) {
+export async function getParentDashboardData(familyId: string, viewerUserId: string) {
   const [{ tasks, rewards }, children, weekStart] = await Promise.all([
-    listAllPendingApprovals(),
-    prisma.childProfile.findMany({ include: { user: true }, orderBy: { displayName: "asc" } }),
+    listAllPendingApprovals(familyId),
+    prisma.childProfile.findMany({
+      where: { user: { familyId } },
+      include: { user: true },
+      orderBy: { displayName: "asc" },
+    }),
     Promise.resolve(startOfLocalWeek()),
   ]);
 
-  // Materialize recurring tasks for each active child so today's list is
-  // up-to-date when the parent loads the dashboard. Skip inactive children.
   await Promise.all(
     children
       .filter((c) => c.user.isActive)
@@ -140,9 +156,10 @@ export async function getParentDashboardData(viewerUserId: string) {
 
   const [weekly, topChores, recent, tasksByChild] = await Promise.all([
     Promise.all(children.map((c) => getWeeklyPointsSeries(c.id, weekStart))),
-    getMostCompletedTasks(weekStart),
+    getMostCompletedTasks(familyId, weekStart),
     prisma.activityLog.findMany({
       where: {
+        familyId,
         eventType: {
           in: [
             "TASK_APPROVED",
@@ -180,8 +197,6 @@ export async function getParentDashboardData(viewerUserId: string) {
     child: r.child ? { id: r.child.id, displayName: r.child.displayName } : null,
   }));
 
-  // Pair each child with their today's assigned tasks (todo only — APPROVED
-  // ones are visible in the activity feed below). Order matches `children`.
   const todayTasksByChild = children.map((child, i) => ({
     child,
     tasks: (tasksByChild[i] ?? []).filter(

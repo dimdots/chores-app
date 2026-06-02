@@ -8,12 +8,6 @@ import { LoginError } from "./parent-auth";
 
 /**
  * Unified PIN login — works for any user (parent or child) that has a PIN set.
- *
- * The picker UI lists all active users with a pinHash, so the caller just
- * clicks a profile and types 6 digits — same UX for everyone. This replaces
- * the old split between email-login (parent) and PIN-login (child) for the
- * common everyday path. Email login remains available as a fallback for
- * parents whose PIN is forgotten or not yet set.
  */
 export async function loginWithPin(
   input: unknown,
@@ -43,11 +37,13 @@ export async function loginWithPin(
   const childId = user.childProfile?.id;
   await setSessionCookie({
     userId: user.id,
+    familyId: user.familyId,
     role: user.role,
     name: user.name,
     childId,
   });
   await logEvent({
+    familyId: user.familyId,
     actorUserId: user.id,
     childId: childId ?? null,
     eventType: user.role === "PARENT" ? "LOGIN_PARENT" : "LOGIN_CHILD",
@@ -63,14 +59,22 @@ export async function logout(): Promise<void> {
  * Let the currently signed-in user set or change their own PIN.
  * Used by parents to onboard into the shared PIN picker.
  */
-export async function setOwnPin(args: { userId: string; newPin: string }): Promise<void> {
+export async function setOwnPin(args: {
+  familyId: string;
+  userId: string;
+  newPin: string;
+}): Promise<void> {
   if (!isSixDigitPin(args.newPin)) throw new Error("PIN must be 6 digits");
   const pinHash = await hashPin(args.newPin);
-  await prisma.user.update({
-    where: { id: args.userId },
+  // updateMany so a forged userId from another family silently no-ops; the
+  // caller treats the resulting count==0 the same way they treat a typo'd id.
+  const res = await prisma.user.updateMany({
+    where: { id: args.userId, familyId: args.familyId },
     data: { pinHash },
   });
+  if (res.count === 0) throw new Error("User not found");
   await logEvent({
+    familyId: args.familyId,
     actorUserId: args.userId,
     eventType: "PIN_SET",
   });

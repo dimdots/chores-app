@@ -3,6 +3,10 @@ import { addDays } from "date-fns";
 import { isoDateLocal, startOfLocalDay, startOfLocalWeek } from "@/lib/utils/dates";
 import { toCsv } from "@/lib/utils/csv";
 
+// All "report" queries that fan out across children take an explicit
+// familyId. Single-child queries trust the caller to have validated the
+// child belongs to the family (action layer uses assertChildInFamily).
+
 // ---------- Weekly points ----------
 
 export type WeeklyPointsPoint = { date: string; points: number };
@@ -12,10 +16,6 @@ export async function getWeeklyPointsSeries(
   weekStart: Date = startOfLocalWeek(),
 ): Promise<{ childId: string; series: WeeklyPointsPoint[]; total: number }> {
   const end = addDays(weekStart, 7);
-  // Two separate inputs land on the same daily bucket: APPROVED tasks (their
-  // pointsAwarded snapshot) and standalone PointAdjustment rows (parent-issued
-  // bonuses/penalties). The current-points balance reflects both, so the chart
-  // also has to — otherwise a bonus day looks like a no-points day.
   const [tasks, adjustments] = await Promise.all([
     prisma.assignedTask.findMany({
       where: {
@@ -61,17 +61,25 @@ export async function getWeeklyPoints(childId: string, weekStart?: Date) {
 
 // ---------- Most completed chores ----------
 
-export async function getMostCompletedTasks(since: Date = startOfLocalWeek(), limit = 5) {
+export async function getMostCompletedTasks(
+  familyId: string,
+  since: Date = startOfLocalWeek(),
+  limit = 5,
+) {
   const grouped = await prisma.assignedTask.groupBy({
     by: ["taskDefinitionId"],
-    where: { status: "APPROVED", approvedAt: { gte: since } },
+    where: {
+      status: "APPROVED",
+      approvedAt: { gte: since },
+      taskDefinition: { familyId },
+    },
     _count: { _all: true },
     orderBy: { _count: { taskDefinitionId: "desc" } },
     take: limit,
   });
   if (grouped.length === 0) return [];
   const defs = await prisma.taskDefinition.findMany({
-    where: { id: { in: grouped.map((g) => g.taskDefinitionId) } },
+    where: { id: { in: grouped.map((g) => g.taskDefinitionId) }, familyId },
     include: { category: true },
   });
   const byId = new Map(defs.map((d) => [d.id, d]));
@@ -86,9 +94,16 @@ export async function getMostCompletedTasks(since: Date = startOfLocalWeek(), li
 
 // ---------- Reward history ----------
 
-export async function getRewardHistory(childId?: string, limit = 200) {
+export async function getRewardHistory(
+  familyId: string,
+  childId?: string,
+  limit = 200,
+) {
   return prisma.rewardRequest.findMany({
-    where: childId ? { childId } : undefined,
+    where: {
+      reward: { familyId },
+      ...(childId ? { childId } : {}),
+    },
     include: { reward: true, child: { include: { user: true } } },
     orderBy: { requestedAt: "desc" },
     take: limit,
@@ -98,6 +113,7 @@ export async function getRewardHistory(childId?: string, limit = 200) {
 // ---------- Activity history ----------
 
 export async function getActivityHistory(filter: {
+  familyId: string;
   childId?: string;
   from?: Date;
   to?: Date;
@@ -105,6 +121,7 @@ export async function getActivityHistory(filter: {
 }) {
   return prisma.activityLog.findMany({
     where: {
+      familyId: filter.familyId,
       childId: filter.childId ?? undefined,
       createdAt: {
         gte: filter.from,
@@ -119,7 +136,12 @@ export async function getActivityHistory(filter: {
 
 // ---------- CSV exports ----------
 
-export async function exportCsvActivity(filter: { childId?: string; from?: Date; to?: Date }) {
+export async function exportCsvActivity(filter: {
+  familyId: string;
+  childId?: string;
+  from?: Date;
+  to?: Date;
+}) {
   const rows = await getActivityHistory({ ...filter, limit: 5000 });
   return toCsv(
     rows.map((r) => ({
@@ -135,9 +157,15 @@ export async function exportCsvActivity(filter: { childId?: string; from?: Date;
   );
 }
 
-export async function exportCsvTasks(filter: { childId?: string; from?: Date; to?: Date }) {
+export async function exportCsvTasks(filter: {
+  familyId: string;
+  childId?: string;
+  from?: Date;
+  to?: Date;
+}) {
   const rows = await prisma.assignedTask.findMany({
     where: {
+      taskDefinition: { familyId: filter.familyId },
       childId: filter.childId,
       createdAt: { gte: filter.from, lt: filter.to },
     },
@@ -163,9 +191,15 @@ export async function exportCsvTasks(filter: { childId?: string; from?: Date; to
   );
 }
 
-export async function exportCsvPoints(filter: { childId?: string; from?: Date; to?: Date }) {
+export async function exportCsvPoints(filter: {
+  familyId: string;
+  childId?: string;
+  from?: Date;
+  to?: Date;
+}) {
   const rows = await prisma.pointAdjustment.findMany({
     where: {
+      child: { user: { familyId: filter.familyId } },
       childId: filter.childId,
       createdAt: { gte: filter.from, lt: filter.to },
     },
@@ -184,9 +218,15 @@ export async function exportCsvPoints(filter: { childId?: string; from?: Date; t
   );
 }
 
-export async function exportCsvRewards(filter: { childId?: string; from?: Date; to?: Date }) {
+export async function exportCsvRewards(filter: {
+  familyId: string;
+  childId?: string;
+  from?: Date;
+  to?: Date;
+}) {
   const rows = await prisma.rewardRequest.findMany({
     where: {
+      reward: { familyId: filter.familyId },
       childId: filter.childId,
       requestedAt: { gte: filter.from, lt: filter.to },
     },

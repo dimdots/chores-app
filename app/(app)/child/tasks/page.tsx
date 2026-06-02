@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 // duplicate here. Custom (non-preset) tasks are still creatable via the
 // "Новое" link in the header.
 export default async function ChildTasks() {
-  await requireChild();
-  const categories = await listCategories({ activeOnly: true });
+  const s = await requireChild();
+  const categories = await listCategories(s.familyId, { activeOnly: true });
 
   const byName = new Map(categories.map((c) => [c.name, c]));
   const fallback = categories[0];

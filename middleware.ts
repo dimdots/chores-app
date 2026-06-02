@@ -6,6 +6,9 @@ const PUBLIC_PATHS = [
   "/parent-login",
   "/child-login",
   "/setup",
+  // /signup is the invite-redemption page — has to be reachable without
+  // a session, since redeeming the token is what creates the session.
+  "/signup",
   "/api/auth",
   "/api/health",
   "/favicon.ico",

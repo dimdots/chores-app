@@ -32,18 +32,29 @@ export async function bootstrapFirstParent(input: unknown): Promise<{ userId: st
   if (parentCount > 0) throw new Error(t.errors.parentsExist);
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const created = await prisma.user.create({
-    data: {
-      role: "PARENT",
-      name: parsed.data.name,
-      email: parsed.data.email,
-      passwordHash,
-      isActive: true,
-    },
+
+  // Bootstrap creates the founding Family alongside the first parent. After
+  // the multi-tenant pivot this path is only used by `npm run bootstrap` on
+  // an empty DB — the in-product flow is /signup with an invite token.
+  const created = await prisma.$transaction(async (tx) => {
+    const family = await tx.family.create({
+      data: { name: parsed.data.name, locale: "ru" },
+    });
+    const user = await tx.user.create({
+      data: {
+        familyId: family.id,
+        role: "PARENT",
+        name: parsed.data.name,
+        email: parsed.data.email,
+        passwordHash,
+        isActive: true,
+      },
+    });
+    return { user, family };
   });
 
-  // Seed default categories on first setup if the table is empty.
-  await seedDefaultCategoriesIfEmpty();
+  // Seed default categories for the new family.
+  await seedDefaultCategoriesIfEmpty(created.family.id);
 
-  return { userId: created.id };
+  return { userId: created.user.id };
 }

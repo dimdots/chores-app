@@ -31,22 +31,6 @@ export async function markTaskCompleteAction(assignedTaskId: string): Promise<Re
   }
 }
 
-/**
- * Child creates their own task. In the shared-trust model, kids can add
- * tasks they want to do; parents see them in the same list and can adjust
- * point values or react on the activity feed if something looks off.
- *
- * The task is always auto-assigned to the creating child (they can only
- * add to their own queue). Recurrence is optional — NONE for a one-off,
- * or DAILY / WEEKLY / WEEKDAYS for an ongoing routine. For recurring
- * tasks we also seed today's assignment so the new task shows up on the
- * kid's board immediately without waiting for tomorrow's generator pass.
- */
-/**
- * Instant credit for a single preset on the child side: kid taps "Готово"
- * on a preset row and the points land immediately. We create the definition
- * + assigned row + APPROVED state in one transaction (see service notes).
- */
 export async function completePresetAsChildAction(input: {
   title: string;
   description?: string | null;
@@ -56,6 +40,7 @@ export async function completePresetAsChildAction(input: {
   try {
     const s = await assertChild();
     await createAndCompleteAdHocTask(
+      s.familyId,
       {
         title: input.title,
         description: input.description ?? null,
@@ -72,13 +57,6 @@ export async function completePresetAsChildAction(input: {
   }
 }
 
-/**
- * Bulk-create TaskDefinitions on the child side from the preset picker. Each
- * created task is auto-assigned to the calling kid (just like single-task
- * creation does — kids can only add to their own queue). Recurrence is
- * always NONE for preset picks; the kid can edit the resulting tasks later
- * if they want a recurring routine.
- */
 export async function createChildTasksFromPresetsAction(
   items: Array<{
     title: string;
@@ -96,6 +74,7 @@ export async function createChildTasksFromPresetsAction(
     let created = 0;
     for (const item of items) {
       const def = await createTaskDefinition(
+        s.familyId,
         {
           title: item.title,
           description: item.description ?? null,
@@ -105,7 +84,7 @@ export async function createChildTasksFromPresetsAction(
         },
         s.userId,
       );
-      await assignTaskToChild({
+      await assignTaskToChild(s.familyId, {
         taskDefinitionId: def.id,
         childId: s.childId,
         scheduledDate: null,
@@ -133,6 +112,7 @@ export async function createChildTaskAction(input: {
     const recurrenceDays =
       recurrenceType === "WEEKDAYS" ? input.recurrenceDays ?? [] : null;
     const r = await createTaskDefinition(
+      s.familyId,
       {
         title: input.title,
         description: null,
@@ -143,7 +123,7 @@ export async function createChildTaskAction(input: {
       },
       s.userId,
     );
-    await assignTaskToChild({
+    await assignTaskToChild(s.familyId, {
       taskDefinitionId: r.id,
       childId: s.childId,
       scheduledDate: null,

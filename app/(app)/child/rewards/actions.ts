@@ -10,7 +10,7 @@ export async function requestRewardAction(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const s = await assertChild();
-    await requestReward({ rewardId }, s.childId, s.userId);
+    await requestReward(s.familyId, { rewardId }, s.childId, s.userId);
     revalidatePath("/child/dashboard");
     revalidatePath("/child/rewards");
     revalidatePath("/parent/approvals");

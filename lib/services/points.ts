@@ -33,6 +33,9 @@ export async function getCurrentPoints(childId: string): Promise<number> {
  * reduces the spendable balance without dropping the kid's level. Negative
  * deltas (reward claims, penalties) leave `lifetimePoints` untouched.
  *
+ * familyId is derived from the child relation so callers don't have to
+ * thread it through every site that already has a childId.
+ *
  * Pass the transaction client `tx` so this runs inside the caller's tx.
  */
 export async function applyPointsDelta(
@@ -49,7 +52,11 @@ export async function applyPointsDelta(
 ): Promise<{ newBalance: number; newLevel: number }> {
   const child = await tx.childProfile.findUnique({
     where: { id: args.childId },
-    select: { currentPoints: true, lifetimePoints: true },
+    select: {
+      currentPoints: true,
+      lifetimePoints: true,
+      user: { select: { familyId: true } },
+    },
   });
   if (!child) throw new Error(t.errors.childNotFound);
   const next = child.currentPoints + args.delta;
@@ -71,6 +78,7 @@ export async function applyPointsDelta(
 
   await logEvent(
     {
+      familyId: child.user.familyId,
       actorUserId: args.actorUserId,
       childId: args.childId,
       eventType: args.eventType,

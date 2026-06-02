@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import type { SessionPayload } from "@/types/session";
 import { startOfLocalDay } from "@/lib/utils/dates";
 import { t } from "@/lib/i18n/ru";
 
-export async function requireParentForExport() {
+export type ExportAuth =
+  | { session: SessionPayload; response: null }
+  | { session: null; response: NextResponse };
+
+/**
+ * Variant of requireParentForExport that returns the session on success so
+ * route handlers can read familyId from it. Returns a NextResponse to bail
+ * with (401/403) when auth fails.
+ */
+export async function requireParentSessionForExport(): Promise<ExportAuth> {
   const s = await getSession();
   if (!s) {
-    return NextResponse.json({ error: t.errors.notAuthenticated }, { status: 401 });
+    return {
+      session: null,
+      response: NextResponse.json({ error: t.errors.notAuthenticated }, { status: 401 }),
+    };
   }
   if (s.role !== "PARENT") {
-    return NextResponse.json({ error: t.errors.notAuthorized }, { status: 403 });
+    return {
+      session: null,
+      response: NextResponse.json({ error: t.errors.notAuthorized }, { status: 403 }),
+    };
   }
-  return null;
+  return { session: s, response: null };
 }
 
 export function parseExportFilter(req: NextRequest) {

@@ -10,8 +10,8 @@ import { t } from "@/lib/i18n/ru";
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage() {
-  await requireParent();
-  const { tasks, rewards } = await listAllPendingApprovals();
+  const s = await requireParent();
+  const { tasks, rewards } = await listAllPendingApprovals(s.familyId);
 
   return (
     <div className="space-y-6">

@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/db/prisma";
 
 export type LogEventInput = {
+  /** Family the event happened in. Always required after the multi-tenant pivot. */
+  familyId: string;
   actorUserId?: string | null;
   childId?: string | null;
   eventType: string;
@@ -23,6 +25,7 @@ export async function logEvent(
 ): Promise<void> {
   await tx.activityLog.create({
     data: {
+      familyId: input.familyId,
       actorUserId: input.actorUserId ?? null,
       childId: input.childId ?? null,
       eventType: input.eventType,

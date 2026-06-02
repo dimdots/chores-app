@@ -20,7 +20,7 @@ const DAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 export default async function ParentDashboard() {
   const session = await requireParent();
-  const data = await getParentDashboardData(session.userId);
+  const data = await getParentDashboardData(session.familyId, session.userId);
 
   return (
     <div className="space-y-6">

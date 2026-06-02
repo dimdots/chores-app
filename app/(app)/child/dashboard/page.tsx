@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ChildDashboard() {
   const session = await requireChild();
-  const data = await getChildDashboardData(session.childId, session.userId);
+  const data = await getChildDashboardData(session.familyId, session.childId, session.userId);
 
   const toTile = (
     task: (typeof data.todayTasks)[number],

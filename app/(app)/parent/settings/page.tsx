@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function ParentSettingsPage() {
   const session = await requireParent();
   const [children, parents, me] = await Promise.all([
-    listChildren(),
+    listChildren(session.familyId),
     prisma.user.findMany({
-      where: { role: "PARENT" },
+      where: { familyId: session.familyId, role: "PARENT" },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, email: true, isActive: true, pinHash: true },
     }),

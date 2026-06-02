@@ -6,8 +6,8 @@ import { t } from "@/lib/i18n/ru";
 export const dynamic = "force-dynamic";
 
 export default async function ParentCategoriesPage() {
-  await requireParent();
-  const categories = await listCategories({});
+  const s = await requireParent();
+  const categories = await listCategories(s.familyId);
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{t.categories.title}</h1>

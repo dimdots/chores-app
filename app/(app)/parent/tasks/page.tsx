@@ -19,8 +19,8 @@ export const dynamic = "force-dynamic";
 // when the parent navigates from the dashboard or activity feed; the Tasks
 // landing page is now the action-oriented view.
 export default async function ParentTasksPage() {
-  await requireParent();
-  const categories = await listCategories({ activeOnly: true });
+  const s = await requireParent();
+  const categories = await listCategories(s.familyId, { activeOnly: true });
 
   const byName = new Map(categories.map((c) => [c.name, c]));
   const fallback = categories[0];

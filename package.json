@@ -16,6 +16,7 @@
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "bootstrap:parent": "tsx scripts/bootstrap.ts",
+    "invite:family": "tsx scripts/create-family-invite.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",

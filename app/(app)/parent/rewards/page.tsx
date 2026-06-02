@@ -12,8 +12,8 @@ import { formatDateRu } from "@/lib/utils/dates";
 export const dynamic = "force-dynamic";
 
 export default async function ParentRewardsPage() {
-  await requireParent();
-  const rewards = await listRewardDefinitions({ includeInactive: true });
+  const s = await requireParent();
+  const rewards = await listRewardDefinitions(s.familyId, { includeInactive: true });
 
   return (
     <div className="space-y-4">

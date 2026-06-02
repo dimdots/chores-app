@@ -21,7 +21,7 @@ function invalidate() {
 export async function approveTaskAction(assignedTaskId: string) {
   try {
     const s = await assertParent();
-    await approveTask(assignedTaskId, s.userId);
+    await approveTask(s.familyId, assignedTaskId, s.userId);
     invalidate();
     return { ok: true } as const;
   } catch (e) {
@@ -32,7 +32,7 @@ export async function approveTaskAction(assignedTaskId: string) {
 export async function rejectTaskAction(assignedTaskId: string, reason: string | null) {
   try {
     const s = await assertParent();
-    await rejectTask(assignedTaskId, reason, s.userId);
+    await rejectTask(s.familyId, assignedTaskId, reason, s.userId);
     invalidate();
     return { ok: true } as const;
   } catch (e) {
@@ -43,7 +43,7 @@ export async function rejectTaskAction(assignedTaskId: string, reason: string | 
 export async function approveRewardRequestAction(requestId: string) {
   try {
     const s = await assertParent();
-    await approveRewardRequest(requestId, s.userId);
+    await approveRewardRequest(s.familyId, requestId, s.userId);
     invalidate();
     return { ok: true } as const;
   } catch (e) {
@@ -54,7 +54,7 @@ export async function approveRewardRequestAction(requestId: string) {
 export async function rejectRewardRequestAction(requestId: string, reason: string | null) {
   try {
     const s = await assertParent();
-    await rejectRewardRequest(requestId, reason, s.userId);
+    await rejectRewardRequest(s.familyId, requestId, reason, s.userId);
     invalidate();
     return { ok: true } as const;
   } catch (e) {

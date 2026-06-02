@@ -35,11 +35,13 @@ export async function loginChild(input: unknown): Promise<{ childId: string; nam
   recordSuccess(key);
   await setSessionCookie({
     userId: user.id,
+    familyId: user.familyId,
     role: "CHILD",
     childId: user.childProfile.id,
     name: user.name,
   });
   await logEvent({
+    familyId: user.familyId,
     actorUserId: user.id,
     childId: user.childProfile.id,
     eventType: "LOGIN_CHILD",
@@ -51,8 +53,9 @@ export async function logoutChild(): Promise<void> {
   clearSessionCookie();
 }
 
-/** Parent-only: reset a child's PIN. */
+/** Parent-only: reset a child's PIN. Scoped to the caller's family. */
 export async function resetChildPin(args: {
+  familyId: string;
   childUserId: string;
   newPin: string;
   actorUserId: string;
@@ -61,8 +64,10 @@ export async function resetChildPin(args: {
     throw new Error("PIN must be 6 digits");
   }
   const pinHash = await hashPin(args.newPin);
-  const user = await prisma.user.findUnique({
-    where: { id: args.childUserId },
+  // findFirst with the family filter — a cross-family id returns null and
+  // the caller sees the same "Child not found" they'd see for a typo.
+  const user = await prisma.user.findFirst({
+    where: { id: args.childUserId, familyId: args.familyId },
     include: { childProfile: true },
   });
   if (!user || user.role !== "CHILD") throw new Error("Child not found");
@@ -71,6 +76,7 @@ export async function resetChildPin(args: {
     data: { pinHash },
   });
   await logEvent({
+    familyId: args.familyId,
     actorUserId: args.actorUserId,
     childId: user.childProfile?.id ?? null,
     eventType: "PIN_RESET",

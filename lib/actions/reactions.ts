@@ -20,6 +20,7 @@ export async function toggleReactionAction(
     if (!isAllowedReaction(emoji)) return { ok: false, error: t.errors.validation };
     const s = await assertSession();
     const { present } = await toggleReaction({
+      familyId: s.familyId,
       activityLogId,
       userId: s.userId,
       emoji,

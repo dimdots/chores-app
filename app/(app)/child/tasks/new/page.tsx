@@ -7,8 +7,8 @@ import { ChildTaskForm } from "./child-task-form";
 export const dynamic = "force-dynamic";
 
 export default async function NewChildTaskPage() {
-  await requireChild();
-  const categories = await listCategories({ activeOnly: true });
+  const s = await requireChild();
+  const categories = await listCategories(s.familyId, { activeOnly: true });
 
   return (
     <Card>

@@ -7,8 +7,8 @@ import { t } from "@/lib/i18n/ru";
 export const dynamic = "force-dynamic";
 
 export default async function NewTaskPage() {
-  await requireParent();
-  const categories = await listCategories({ activeOnly: true });
+  const s = await requireParent();
+  const categories = await listCategories(s.familyId, { activeOnly: true });
   return (
     <Card>
       <CardHeader>

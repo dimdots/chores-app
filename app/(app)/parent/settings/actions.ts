@@ -7,6 +7,7 @@ import { resetChildPin } from "@/lib/auth/child-pin-auth";
 import { createParentAccount } from "@/lib/auth/parent-auth";
 import { setOwnPin } from "@/lib/auth/pin-login";
 import { addManualAdjustment } from "@/lib/services/points";
+import { assertChildInFamily } from "@/lib/auth/family-scope";
 import { parentCreateSchema, setPinSchema } from "@/lib/validators/auth";
 import { t } from "@/lib/i18n/ru";
 
@@ -25,8 +26,8 @@ export async function addChildAction(input: {
   pin: string;
 }): Promise<Res> {
   try {
-    await assertParent();
-    const c = await createChild(input);
+    const s = await assertParent();
+    const c = await createChild({ ...input, familyId: s.familyId });
     revalidate();
     return { ok: true, id: c.childId };
   } catch (e) {
@@ -39,8 +40,8 @@ export async function setChildActiveAction(input: {
   active: boolean;
 }): Promise<Res> {
   try {
-    await assertParent();
-    await setChildActive(input.childId, input.active);
+    const s = await assertParent();
+    await setChildActive(s.familyId, input.childId, input.active);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -54,12 +55,12 @@ export async function addParentAction(input: {
   password: string;
 }): Promise<Res> {
   try {
-    await assertParent();
+    const s = await assertParent();
     const parsed = parentCreateSchema.safeParse(input);
     if (!parsed.success) {
       return { ok: false, error: t.errors.validation };
     }
-    const u = await createParentAccount(parsed.data);
+    const u = await createParentAccount({ ...parsed.data, familyId: s.familyId });
     revalidate();
     return { ok: true, id: u.id };
   } catch (e) {
@@ -74,6 +75,7 @@ export async function resetChildPinAction(input: {
   try {
     const s = await assertParent();
     await resetChildPin({
+      familyId: s.familyId,
       childUserId: input.childUserId,
       newPin: input.newPin,
       actorUserId: s.userId,
@@ -88,7 +90,7 @@ export async function resetChildPinAction(input: {
 export async function resetCycleAction(input: { childId: string }): Promise<Res> {
   try {
     const s = await assertParent();
-    await resetCycle(input.childId, s.userId);
+    await resetCycle(s.familyId, input.childId, s.userId);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -103,7 +105,11 @@ export async function setMyPinAction(input: { pin: string }): Promise<Res> {
     if (!parsed.success) {
       return { ok: false, error: t.errors.validation };
     }
-    await setOwnPin({ userId: s.userId, newPin: parsed.data.pin });
+    await setOwnPin({
+      familyId: s.familyId,
+      userId: s.userId,
+      newPin: parsed.data.pin,
+    });
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -118,6 +124,10 @@ export async function addAdjustmentAction(input: {
 }): Promise<Res> {
   try {
     const s = await assertParent();
+    // Defense: addManualAdjustment doesn't take familyId (the childId carries
+    // it via the relation), but we still verify ownership at the action
+    // boundary so a forged id from another family is rejected up front.
+    await assertChildInFamily(input.childId, s.familyId);
     await addManualAdjustment(input, s.userId);
     revalidate();
     return { ok: true };

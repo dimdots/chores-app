@@ -1,14 +1,11 @@
 /**
- * Database seeder.
+ * Database seeder. Idempotently bootstraps an empty database with the legacy
+ * "Dima" family, default categories, sample tasks, sample rewards, one parent,
+ * and one child placeholder.
  *
- * Creates:
- *   - default task categories
- *   - sample task definitions
- *   - sample rewards
- *   - ONE parent placeholder (email/password from env or defaults)
- *   - ONE child placeholder (PIN from env or default)
- *
- * IMPORTANT: change `SEED_PARENT_PASSWORD` / `SEED_CHILD_PIN` in production.
+ * After the multi-tenant pivot, every seeded row belongs to a single
+ * pre-existing Family (id "family_dima_legacy") — created by the migration
+ * 20260528120000_add_family_tenancy, or by this seeder on a brand-new DB.
  *
  * Run:
  *   pnpm db:seed      (or `tsx prisma/seed.ts`)
@@ -20,6 +17,8 @@ import { DEFAULT_CATEGORIES, DEFAULT_TASKS, DEFAULT_REWARDS } from "../config/de
 
 const prisma = new PrismaClient();
 
+const LEGACY_FAMILY_ID = "family_dima_legacy";
+
 const SEED_PARENT_EMAIL = process.env.SEED_PARENT_EMAIL ?? "parent@example.com";
 const SEED_PARENT_PASSWORD = process.env.SEED_PARENT_PASSWORD ?? "change-me-now";
 const SEED_PARENT_NAME = process.env.SEED_PARENT_NAME ?? "Родитель";
@@ -30,12 +29,25 @@ const SEED_CHILD_PIN = process.env.SEED_CHILD_PIN ?? "123456";
 
 const BCRYPT_ROUNDS = 12;
 
+async function seedFamily() {
+  await prisma.family.upsert({
+    where: { id: LEGACY_FAMILY_ID },
+    update: {},
+    create: { id: LEGACY_FAMILY_ID, name: "Dima", locale: "ru" },
+  });
+}
+
 async function seedCategories() {
   for (const cat of DEFAULT_CATEGORIES) {
     await prisma.taskCategory.upsert({
-      where: { name: cat.name },
+      where: { familyId_name: { familyId: LEGACY_FAMILY_ID, name: cat.name } },
       update: { sortOrder: cat.sortOrder, isActive: true },
-      create: { name: cat.name, sortOrder: cat.sortOrder, isActive: true },
+      create: {
+        familyId: LEGACY_FAMILY_ID,
+        name: cat.name,
+        sortOrder: cat.sortOrder,
+        isActive: true,
+      },
     });
   }
 }
@@ -46,6 +58,7 @@ async function seedParent(): Promise<string> {
   const passwordHash = await bcrypt.hash(SEED_PARENT_PASSWORD, BCRYPT_ROUNDS);
   const parent = await prisma.user.create({
     data: {
+      familyId: LEGACY_FAMILY_ID,
       role: "PARENT",
       name: SEED_PARENT_NAME,
       email: SEED_PARENT_EMAIL,
@@ -58,7 +71,7 @@ async function seedParent(): Promise<string> {
 
 async function seedChild(): Promise<string> {
   const existing = await prisma.user.findFirst({
-    where: { role: "CHILD", name: SEED_CHILD_NAME },
+    where: { familyId: LEGACY_FAMILY_ID, role: "CHILD", name: SEED_CHILD_NAME },
     include: { childProfile: true },
   });
   if (existing?.childProfile) return existing.childProfile.id;
@@ -69,6 +82,7 @@ async function seedChild(): Promise<string> {
   const pinHash = await bcrypt.hash(SEED_CHILD_PIN, BCRYPT_ROUNDS);
   const childUser = await prisma.user.create({
     data: {
+      familyId: LEGACY_FAMILY_ID,
       role: "CHILD",
       name: SEED_CHILD_NAME,
       pinHash,
@@ -82,14 +96,17 @@ async function seedChild(): Promise<string> {
 
 async function seedTasks(parentId: string) {
   for (const tdef of DEFAULT_TASKS) {
-    const category = await prisma.taskCategory.findUnique({ where: { name: tdef.categoryName } });
+    const category = await prisma.taskCategory.findUnique({
+      where: { familyId_name: { familyId: LEGACY_FAMILY_ID, name: tdef.categoryName } },
+    });
     if (!category) continue;
     const existing = await prisma.taskDefinition.findFirst({
-      where: { title: tdef.title, categoryId: category.id },
+      where: { familyId: LEGACY_FAMILY_ID, title: tdef.title, categoryId: category.id },
     });
     if (existing) continue;
     await prisma.taskDefinition.create({
       data: {
+        familyId: LEGACY_FAMILY_ID,
         title: tdef.title,
         description: tdef.description ?? null,
         categoryId: category.id,
@@ -105,10 +122,13 @@ async function seedTasks(parentId: string) {
 
 async function seedRewards(parentId: string) {
   for (const r of DEFAULT_REWARDS) {
-    const existing = await prisma.reward.findFirst({ where: { title: r.title } });
+    const existing = await prisma.reward.findFirst({
+      where: { familyId: LEGACY_FAMILY_ID, title: r.title },
+    });
     if (existing) continue;
     await prisma.reward.create({
       data: {
+        familyId: LEGACY_FAMILY_ID,
         title: r.title,
         description: r.description ?? null,
         cost: r.cost,
@@ -120,6 +140,9 @@ async function seedRewards(parentId: string) {
 }
 
 async function main() {
+  console.log("→ Seeding family…");
+  await seedFamily();
+
   console.log("→ Seeding categories…");
   await seedCategories();
 

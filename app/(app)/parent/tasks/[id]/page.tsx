@@ -11,11 +11,12 @@ import { t } from "@/lib/i18n/ru";
 export const dynamic = "force-dynamic";
 
 export default async function EditTaskPage({ params }: { params: { id: string } }) {
-  await requireParent();
+  const s = await requireParent();
   const [def, categories, children] = await Promise.all([
-    prisma.taskDefinition.findUnique({ where: { id: params.id } }),
-    listCategories({ activeOnly: true }),
+    prisma.taskDefinition.findFirst({ where: { id: params.id, familyId: s.familyId } }),
+    listCategories(s.familyId, { activeOnly: true }),
     prisma.childProfile.findMany({
+      where: { user: { familyId: s.familyId } },
       include: { user: true },
       orderBy: { displayName: "asc" },
     }),

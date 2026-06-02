@@ -2,9 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
 
 // The shared-trust pivot (2026-04-19) replaces the approval gate with
-// pure-positive reactions. Locking the emoji set keeps this from drifting
-// into a clawback-style "dislike" later — if we ever want more signal, we
-// add a new explicit model rather than piggybacking here.
+// pure-positive reactions.
 export const ALLOWED_REACTIONS = ["👍", "❤️", "🎉"] as const;
 export type ReactionEmoji = (typeof ALLOWED_REACTIONS)[number];
 
@@ -14,17 +12,24 @@ export function isAllowedReaction(value: string): value is ReactionEmoji {
 
 /**
  * Toggle a reaction: if this (log, user, emoji) row exists, remove it;
- * otherwise create it. Returns the resulting "present" boolean so the UI can
- * reflect optimistic state without a refetch.
+ * otherwise create it. The activity log must belong to the caller's family
+ * — a forged log id from another tenant returns the same "not found" the
+ * UI would show for a stale id.
  */
 export async function toggleReaction(input: {
+  familyId: string;
   activityLogId: string;
   userId: string;
   emoji: string;
 }): Promise<{ present: boolean }> {
   if (!isAllowedReaction(input.emoji)) throw new Error(t.errors.validation);
 
-  // Existence check first — cheap, indexed by the unique tuple.
+  const log = await prisma.activityLog.findFirst({
+    where: { id: input.activityLogId, familyId: input.familyId },
+    select: { id: true },
+  });
+  if (!log) throw new Error(t.errors.notFound);
+
   const existing = await prisma.reaction.findUnique({
     where: {
       activityLogId_userId_emoji: {
@@ -41,14 +46,6 @@ export async function toggleReaction(input: {
     return { present: false };
   }
 
-  // Validate the log exists so we fail cleanly instead of relying on the FK
-  // error bubbling up as a generic Prisma code.
-  const log = await prisma.activityLog.findUnique({
-    where: { id: input.activityLogId },
-    select: { id: true },
-  });
-  if (!log) throw new Error(t.errors.notFound);
-
   await prisma.reaction.create({
     data: {
       activityLogId: input.activityLogId,
@@ -60,16 +57,14 @@ export async function toggleReaction(input: {
 }
 
 export type ReactionSummary = {
-  // Counts keyed by emoji so the UI can render `👍 3 ❤️ 1` without grouping.
   counts: Record<string, number>;
-  // Emojis the current viewer has already placed, for highlighting buttons.
   mine: string[];
 };
 
 /**
  * Summarize reactions for a batch of activity log ids, from the viewpoint of
- * a specific user. Kept batch-shaped so dashboards can fetch the whole feed's
- * reactions in a single round-trip.
+ * a specific user. Callers always pass log ids they've already family-scoped
+ * (so we don't repeat the family filter here).
  */
 export async function summarizeReactionsForLogs(
   logIds: string[],

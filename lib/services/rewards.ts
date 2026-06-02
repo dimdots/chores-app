@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@prisma/client";
 import {
   rewardCreateSchema,
   rewardUpdateSchema,
@@ -11,12 +10,17 @@ import { t } from "@/lib/i18n/ru";
 
 // ---------- Definitions ----------
 
-export async function createReward(input: unknown, actorUserId: string) {
+export async function createReward(
+  familyId: string,
+  input: unknown,
+  actorUserId: string,
+) {
   const parsed = rewardCreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const data = parsed.data;
   return prisma.reward.create({
     data: {
+      familyId,
       title: data.title,
       description: data.description ?? null,
       cost: data.cost,
@@ -28,19 +32,34 @@ export async function createReward(input: unknown, actorUserId: string) {
   });
 }
 
-export async function updateReward(input: unknown) {
+export async function updateReward(familyId: string, input: unknown) {
   const parsed = rewardUpdateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { id, ...rest } = parsed.data;
-  return prisma.reward.update({ where: { id }, data: rest });
+  const res = await prisma.reward.updateMany({
+    where: { id, familyId },
+    data: rest,
+  });
+  if (res.count === 0) throw new Error(t.errors.rewardNotFound);
+  return prisma.reward.findUnique({ where: { id } });
 }
 
-export async function archiveReward(id: string) {
-  return prisma.reward.update({ where: { id }, data: { isActive: false } });
+export async function archiveReward(familyId: string, id: string) {
+  const res = await prisma.reward.updateMany({
+    where: { id, familyId },
+    data: { isActive: false },
+  });
+  if (res.count === 0) throw new Error(t.errors.rewardNotFound);
+  return prisma.reward.findUnique({ where: { id } });
 }
 
-export async function restoreReward(id: string) {
-  return prisma.reward.update({ where: { id }, data: { isActive: true } });
+export async function restoreReward(familyId: string, id: string) {
+  const res = await prisma.reward.updateMany({
+    where: { id, familyId },
+    data: { isActive: true },
+  });
+  if (res.count === 0) throw new Error(t.errors.rewardNotFound);
+  return prisma.reward.findUnique({ where: { id } });
 }
 
 // ---------- Availability ----------
@@ -57,18 +76,21 @@ export type AvailableRewardView = {
   reason: "ok" | "inactive" | "expired" | "soldOut" | "insufficient";
 };
 
-export async function listAvailableRewardsForChild(childId: string): Promise<AvailableRewardView[]> {
-  const [rewards, profile] = await Promise.all([
-    prisma.reward.findMany({
-      where: { isActive: true },
-      orderBy: { cost: "asc" },
-    }),
-    prisma.childProfile.findUnique({
-      where: { id: childId },
-      select: { currentPoints: true },
-    }),
-  ]);
-  const balance = profile?.currentPoints ?? 0;
+export async function listAvailableRewardsForChild(
+  childId: string,
+): Promise<AvailableRewardView[]> {
+  // Derive familyId from the child so the caller doesn't have to thread it
+  // through every dashboard composition site.
+  const profile = await prisma.childProfile.findUnique({
+    where: { id: childId },
+    select: { currentPoints: true, user: { select: { familyId: true } } },
+  });
+  if (!profile) return [];
+  const rewards = await prisma.reward.findMany({
+    where: { familyId: profile.user.familyId, isActive: true },
+    orderBy: { cost: "asc" },
+  });
+  const balance = profile.currentPoints;
   const now = new Date();
   return rewards.map((r): AvailableRewardView => {
     if (!r.isActive) {
@@ -111,14 +133,11 @@ function toView(r: {
 
 /**
  * Shared-trust model (pivot 2026-04-19): a reward "request" auto-fulfills.
- * Points are debited on the spot, quantityUsed is incremented atomically,
- * and the RewardRequest is written straight to APPROVED. The parent sees
- * it in the activity feed and can react — no decision gate.
- *
- * The legacy approveRewardRequest/rejectRewardRequest paths remain usable
- * for any lingering PENDING rows from the pre-pivot era.
+ * familyId is passed by the caller so we can reject cross-family rewardIds
+ * up front instead of letting a forged id sneak past the FK.
  */
 export async function requestReward(
+  familyId: string,
   input: unknown,
   childId: string,
   actorUserId: string,
@@ -128,7 +147,9 @@ export async function requestReward(
   const { rewardId } = parsed.data;
 
   return prisma.$transaction(async (tx) => {
-    const reward = await tx.reward.findUnique({ where: { id: rewardId } });
+    const reward = await tx.reward.findFirst({
+      where: { id: rewardId, familyId },
+    });
     if (!reward || !reward.isActive) throw new Error(t.errors.rewardUnavailable);
     if (reward.expiresAt && reward.expiresAt.getTime() <= Date.now()) {
       throw new Error(t.errors.rewardUnavailable);
@@ -136,8 +157,8 @@ export async function requestReward(
     if (reward.quantityLimit !== null && reward.quantityUsed >= reward.quantityLimit) {
       throw new Error(t.errors.rewardUnavailable);
     }
-    const child = await tx.childProfile.findUnique({
-      where: { id: childId },
+    const child = await tx.childProfile.findFirst({
+      where: { id: childId, user: { familyId } },
       select: { currentPoints: true },
     });
     if (!child) throw new Error(t.errors.childNotFound);
@@ -156,7 +177,6 @@ export async function requestReward(
       },
     });
 
-    // Respect quantity limit if set; increment quantityUsed atomically.
     if (reward.quantityLimit !== null) {
       const updated = await tx.reward.updateMany({
         where: {
@@ -168,9 +188,6 @@ export async function requestReward(
       if (updated.count === 0) throw new Error(t.errors.rewardUnavailable);
     }
 
-    // applyPointsDelta enforces the non-negative balance invariant and
-    // writes the REWARD_APPROVED activity entry that the family will react
-    // to in the feed.
     await applyPointsDelta(
       {
         childId,
@@ -186,17 +203,19 @@ export async function requestReward(
   });
 }
 
-export async function approveRewardRequest(requestId: string, actorUserId: string) {
+export async function approveRewardRequest(
+  familyId: string,
+  requestId: string,
+  actorUserId: string,
+) {
   return prisma.$transaction(async (tx) => {
-    const req = await tx.rewardRequest.findUnique({
-      where: { id: requestId },
+    const req = await tx.rewardRequest.findFirst({
+      where: { id: requestId, reward: { familyId } },
       include: { reward: true },
     });
     if (!req) throw new Error(t.errors.rewardNotFound);
     if (req.status !== "PENDING") throw new Error(t.errors.alreadyProcessed);
 
-    // Apply point deduction first — this throws InsufficientPointsError if the
-    // child's balance has since dropped below the snapshotted cost.
     await applyPointsDelta(
       {
         childId: req.childId,
@@ -209,7 +228,6 @@ export async function approveRewardRequest(requestId: string, actorUserId: strin
       tx,
     );
 
-    // Respect quantity limit if set; increment quantityUsed atomically.
     if (req.reward.quantityLimit !== null) {
       const updated = await tx.reward.updateMany({
         where: {
@@ -234,12 +252,15 @@ export async function approveRewardRequest(requestId: string, actorUserId: strin
 }
 
 export async function rejectRewardRequest(
+  familyId: string,
   requestId: string,
   reason: string | null,
   actorUserId: string,
 ) {
   return prisma.$transaction(async (tx) => {
-    const req = await tx.rewardRequest.findUnique({ where: { id: requestId } });
+    const req = await tx.rewardRequest.findFirst({
+      where: { id: requestId, reward: { familyId } },
+    });
     if (!req) throw new Error(t.errors.rewardNotFound);
     if (req.status !== "PENDING") throw new Error(t.errors.alreadyProcessed);
     const r = await tx.rewardRequest.update({
@@ -253,6 +274,7 @@ export async function rejectRewardRequest(
     });
     await logEvent(
       {
+        familyId,
         actorUserId,
         childId: req.childId,
         eventType: "REWARD_REJECTED",
@@ -268,16 +290,19 @@ export async function rejectRewardRequest(
 
 // ---------- Queries ----------
 
-export async function listRewardDefinitions(opts: { includeInactive?: boolean } = {}) {
+export async function listRewardDefinitions(
+  familyId: string,
+  opts: { includeInactive?: boolean } = {},
+) {
   return prisma.reward.findMany({
-    where: opts.includeInactive ? undefined : { isActive: true },
+    where: { familyId, ...(opts.includeInactive ? {} : { isActive: true }) },
     orderBy: [{ isActive: "desc" }, { cost: "asc" }],
   });
 }
 
-export async function listPendingRewardRequests() {
+export async function listPendingRewardRequests(familyId: string) {
   return prisma.rewardRequest.findMany({
-    where: { status: "PENDING" },
+    where: { status: "PENDING", reward: { familyId } },
     include: { reward: true, child: { include: { user: true } } },
     orderBy: { requestedAt: "asc" },
   });

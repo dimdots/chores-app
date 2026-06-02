@@ -45,3 +45,17 @@ export const childCreateSchema = z.object({
   pin: z.string().regex(/^\d{6}$/, { message: "PIN must be 6 digits" }),
 });
 export type ChildCreateInput = z.infer<typeof childCreateSchema>;
+
+/**
+ * /signup form: a parent redeems an invite token to create a brand-new
+ * family + their parent account in one step. The token comes from the URL,
+ * the rest from the form.
+ */
+export const familySignupSchema = z.object({
+  token: z.string().min(8),
+  familyName: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(200),
+});
+export type FamilySignupInput = z.infer<typeof familySignupSchema>;

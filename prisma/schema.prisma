@@ -35,6 +35,30 @@ enum Role {
   CHILD
 }
 
+// A Family is the tenant unit. Every User, TaskCategory, TaskDefinition,
+// Reward, and ActivityLog belongs to exactly one Family. Child-scoped tables
+// (AssignedTask, PointAdjustment, RewardRequest, Reaction) inherit family
+// scope through their parent relation (e.g. AssignedTask.child.user.familyId).
+//
+// The legacy single-family deployment was migrated into a single seeded
+// Family row by 20260528120000_add_family_tenancy.
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  // BCP-47 language tag — drives the i18n locale for the family's UI.
+  // Defaults to "ru" (the seeded Dima family's language).
+  locale    String   @default("ru")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  categories   TaskCategory[]
+  tasks        TaskDefinition[]
+  rewards      Reward[]
+  activityLogs ActivityLog[]
+  inviteTokens InviteToken[]
+}
+
 enum RecurrenceType {
   NONE
   DAILY
@@ -59,8 +83,12 @@ enum RewardRequestStatus {
 
 model User {
   id           String   @id @default(cuid())
+  familyId     String
   role         Role
   name         String
+  // Email stays globally unique so login lookups don't have to disambiguate
+  // by family. Two parents in different families sharing one address would
+  // be blocked at signup time, which is a reasonable trade-off.
   email        String?  @unique
   passwordHash String?
   pinHash      String?
@@ -68,6 +96,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  family             Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
   childProfile       ChildProfile?
   createdTasks       TaskDefinition[]  @relation("TaskCreatedBy")
   decidedTasks       AssignedTask[]    @relation("TaskApprovedBy")
@@ -77,6 +106,7 @@ model User {
   activityActor      ActivityLog[]     @relation("ActivityActor")
   reactions          Reaction[]
 
+  @@index([familyId, role, isActive])
   @@index([role, isActive])
 }
 
@@ -105,19 +135,25 @@ model ChildProfile {
 
 model TaskCategory {
   id        String   @id @default(cuid())
-  name      String   @unique
+  familyId  String
+  // Category name is unique within a family, not globally. Two families
+  // can both have a "Дом" / "Maison" category — they're separate rows.
+  name      String
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks TaskDefinition[]
+  family Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  tasks  TaskDefinition[]
 
-  @@index([isActive, sortOrder])
+  @@unique([familyId, name])
+  @@index([familyId, isActive, sortOrder])
 }
 
 model TaskDefinition {
   id             String         @id @default(cuid())
+  familyId       String
   title          String
   description    String?
   categoryId     String
@@ -131,11 +167,12 @@ model TaskDefinition {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  family    Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
   category  TaskCategory   @relation(fields: [categoryId], references: [id])
   createdBy User           @relation("TaskCreatedBy", fields: [createdById], references: [id])
   assigned  AssignedTask[]
 
-  @@index([isActive])
+  @@index([familyId, isActive])
   @@index([categoryId])
 }
 
@@ -181,6 +218,7 @@ model PointAdjustment {
 
 model Reward {
   id            String    @id @default(cuid())
+  familyId      String
   title         String
   description   String?
   cost          Int
@@ -192,10 +230,11 @@ model Reward {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy User            @relation("RewardCreatedBy", fields: [createdById], references: [id])
   requests  RewardRequest[]
 
-  @@index([isActive])
+  @@index([familyId, isActive])
 }
 
 model RewardRequest {
@@ -220,6 +259,10 @@ model RewardRequest {
 
 model ActivityLog {
   id            String   @id @default(cuid())
+  // Denormalized for cheap family-scoped queries on the parent dashboard
+  // feed, which has to include both child-attributed events and events
+  // with childId=null (logins, cycle resets, etc.).
+  familyId      String
   childId       String?
   actorUserId   String?
   eventType     String
@@ -229,10 +272,12 @@ model ActivityLog {
   metadata      Json?
   createdAt     DateTime @default(now())
 
+  family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
   child     ChildProfile? @relation(fields: [childId], references: [id], onDelete: Cascade)
   actor     User?         @relation("ActivityActor", fields: [actorUserId], references: [id])
   reactions Reaction[]
 
+  @@index([familyId, createdAt])
   @@index([childId, createdAt])
   @@index([createdAt])
   @@index([eventType])
@@ -257,9 +302,17 @@ model Reaction {
 
 model InviteToken {
   id        String    @id @default(cuid())
+  // Nullable because FAMILY_SIGNUP tokens are issued *before* the family
+  // exists — redemption is what creates the family. PARENT_INVITE-style
+  // tokens (joining an existing family) would set this on creation.
+  familyId  String?
   tokenHash String    @unique
   purpose   String
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  family Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
 }

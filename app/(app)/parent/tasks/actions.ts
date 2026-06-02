@@ -16,13 +16,12 @@ import { prisma } from "@/lib/db/prisma";
 import { t } from "@/lib/i18n/ru";
 
 /**
- * If there is exactly one active child in the family, return their id so the
- * caller can auto-assign. Otherwise return null — the caller should surface
- * an assign UI instead of guessing.
+ * If the caller's family has exactly one active child, return their id so
+ * the caller can auto-assign. Otherwise return null.
  */
-async function singleActiveChildId(): Promise<string | null> {
+async function singleActiveChildId(familyId: string): Promise<string | null> {
   const kids = await prisma.childProfile.findMany({
-    where: { user: { isActive: true } },
+    where: { user: { familyId, isActive: true } },
     select: { id: true },
     take: 2,
   });
@@ -49,16 +48,11 @@ export async function createTaskAction(input: {
 }): Promise<Res> {
   try {
     const s = await assertParent();
-    const r = await createTaskDefinition(input, s.userId);
+    const r = await createTaskDefinition(s.familyId, input, s.userId);
 
-    // Shared-trust model: when there's exactly one active kid in the family,
-    // every new task lands on their board for today immediately — one-off or
-    // recurring. For recurring tasks the daily generator continues producing
-    // future days; this just seeds today so the parent sees the task appear
-    // without having to wait for tomorrow's dashboard visit.
-    const onlyChildId = await singleActiveChildId();
+    const onlyChildId = await singleActiveChildId(s.familyId);
     if (onlyChildId) {
-      await assignTaskToChild({
+      await assignTaskToChild(s.familyId, {
         taskDefinitionId: r.id,
         childId: onlyChildId,
         scheduledDate: null,
@@ -83,8 +77,8 @@ export async function updateTaskAction(input: {
   isActive?: boolean;
 }): Promise<Res> {
   try {
-    await assertParent();
-    await updateTaskDefinition(input);
+    const s = await assertParent();
+    await updateTaskDefinition(s.familyId, input);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -94,8 +88,8 @@ export async function updateTaskAction(input: {
 
 export async function archiveTaskAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await archiveTaskDefinition(id);
+    const s = await assertParent();
+    await archiveTaskDefinition(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -105,8 +99,8 @@ export async function archiveTaskAction(id: string): Promise<Res> {
 
 export async function restoreTaskAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await restoreTaskDefinition(id);
+    const s = await assertParent();
+    await restoreTaskDefinition(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -114,14 +108,10 @@ export async function restoreTaskAction(id: string): Promise<Res> {
   }
 }
 
-/**
- * Hard-delete a task (and all of its assignments). Separate from archive so
- * the parent can choose: hide it (archive) or really remove it (delete).
- */
 export async function deleteTaskAction(id: string): Promise<Res> {
   try {
-    await assertParent();
-    await deleteTaskDefinition(id);
+    const s = await assertParent();
+    await deleteTaskDefinition(s.familyId, id);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -136,8 +126,8 @@ export async function assignTaskAction(input: {
   dueDate?: string | null;
 }): Promise<Res> {
   try {
-    await assertParent();
-    await assignTaskToChild(input);
+    const s = await assertParent();
+    await assignTaskToChild(s.familyId, input);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -145,14 +135,6 @@ export async function assignTaskAction(input: {
   }
 }
 
-/**
- * Bulk-create TaskDefinitions from the preset picker. Mirrors the single-
- * create flow: when there's exactly one active child in the family, each new
- * task is also assigned to today's board so it appears on the kid's dashboard
- * immediately. For multi-child families we skip auto-assign since we can't
- * guess which kid a preset belongs to — the parent can assign from
- * /parent/tasks afterwards (bulk-assign UI on the list page).
- */
 export async function createTasksFromPresetsAction(
   items: Array<{
     title: string;
@@ -167,11 +149,12 @@ export async function createTasksFromPresetsAction(
       return { ok: false, error: t.errors.validation };
     }
 
-    const onlyChildId = await singleActiveChildId();
+    const onlyChildId = await singleActiveChildId(s.familyId);
 
     let created = 0;
     for (const item of items) {
       const def = await createTaskDefinition(
+        s.familyId,
         {
           title: item.title,
           description: item.description ?? null,
@@ -182,7 +165,7 @@ export async function createTasksFromPresetsAction(
         s.userId,
       );
       if (onlyChildId) {
-        await assignTaskToChild({
+        await assignTaskToChild(s.familyId, {
           taskDefinitionId: def.id,
           childId: onlyChildId,
           scheduledDate: null,
@@ -198,24 +181,12 @@ export async function createTasksFromPresetsAction(
   }
 }
 
-/**
- * Bulk-assign a set of existing TaskDefinitions to today's board. Used by the
- * checkbox selection on /parent/tasks. Single-child families assign silently;
- * multi-child families get an error back asking them to use the per-task
- * assign panel instead (we don't want to silently pick a kid for them).
- */
-/**
- * Parent marks a kid's assigned task as done. Same auto-approve semantics
- * as the kid's own "Готово!" button — points credited, streak updated,
- * activity-log entry written. Useful when the parent witnesses the task
- * being done and wants to record it from their own session.
- */
 export async function markTaskCompleteByParentAction(
   assignedTaskId: string,
 ): Promise<Res> {
   try {
     const s = await assertParent();
-    await markTaskCompletedByParent(assignedTaskId, s.userId);
+    await markTaskCompletedByParent(s.familyId, assignedTaskId, s.userId);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -223,12 +194,6 @@ export async function markTaskCompleteByParentAction(
   }
 }
 
-/**
- * Instant credit for a single preset on the parent side. Single-child
- * families auto-target the only kid; multi-kid families see an error asking
- * them to use the per-task assign panel instead — same rationale as
- * `assignTasksBulkAction` (we don't want to silently pick a child).
- */
 export async function completePresetAsParentAction(input: {
   title: string;
   description?: string | null;
@@ -237,11 +202,12 @@ export async function completePresetAsParentAction(input: {
 }): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
   try {
     const s = await assertParent();
-    const onlyChildId = await singleActiveChildId();
+    const onlyChildId = await singleActiveChildId(s.familyId);
     if (!onlyChildId) {
       return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
     }
     await createAndCompleteAdHocTask(
+      s.familyId,
       {
         title: input.title,
         description: input.description ?? null,
@@ -262,19 +228,19 @@ export async function assignTasksBulkAction(
   taskIds: string[],
 ): Promise<{ ok: true; assigned: number } | { ok: false; error: string }> {
   try {
-    await assertParent();
+    const s = await assertParent();
     if (!Array.isArray(taskIds) || taskIds.length === 0) {
       return { ok: false, error: t.errors.validation };
     }
 
-    const onlyChildId = await singleActiveChildId();
+    const onlyChildId = await singleActiveChildId(s.familyId);
     if (!onlyChildId) {
       return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
     }
 
     let assigned = 0;
     for (const id of taskIds) {
-      await assignTaskToChild({
+      await assignTaskToChild(s.familyId, {
         taskDefinitionId: id,
         childId: onlyChildId,
         scheduledDate: null,
