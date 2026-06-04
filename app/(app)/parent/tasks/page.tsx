@@ -17,6 +17,7 @@ import {
   creditExistingTaskAsParentAction,
   deleteTasksBulkAction,
   assignTasksBulkAction,
+  uncreditTaskAction,
 } from "@/app/(app)/parent/tasks/actions";
 import { getT, getLocale } from "@/lib/i18n/server";
 
@@ -70,6 +71,7 @@ export default async function ParentTasksPage() {
               presets={resolved}
               action={createTasksFromPresetsAction}
               completeAction={completePresetAsParentAction}
+              undoAction={uncreditTaskAction}
               redirectTo="/parent/dashboard"
             />
           </CardContent>
@@ -103,6 +105,7 @@ export default async function ParentTasksPage() {
         <UserTasksPicker
           tasks={rows}
           completeAction={creditExistingTaskAsParentAction}
+          undoAction={uncreditTaskAction}
           deleteAction={deleteTasksBulkAction}
           assignAction={assignTasksBulkAction}
         />

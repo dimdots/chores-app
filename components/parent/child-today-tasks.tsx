@@ -8,7 +8,11 @@ import { CategoryGroup } from "@/components/shared/category-group";
 import { TaskStatusPill } from "@/components/shared/status-pill";
 import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
-import { markTaskCompleteByParentAction } from "@/app/(app)/parent/tasks/actions";
+import { useToast } from "@/components/ui/toast";
+import {
+  markTaskCompleteByParentAction,
+  uncreditTaskAction,
+} from "@/app/(app)/parent/tasks/actions";
 
 export type ParentTodayTaskRow = {
   id: string;
@@ -83,6 +87,7 @@ function ParentTaskRow({ task }: { task: ParentTodayTaskRow }) {
   const t = useT();
   const locale = useLocale();
   const router = useRouter();
+  const toast = useToast();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +99,18 @@ function ParentTaskRow({ task }: { task: ParentTodayTaskRow }) {
         setError(res.error);
         return;
       }
+      const creditedId = res.assignedTaskId;
+      toast({
+        message: `+${res.pointsAwarded} ${t.app.pointsShort}`,
+        action: {
+          label: t.app.undo,
+          run: async () => {
+            await uncreditTaskAction(creditedId);
+            router.refresh();
+          },
+        },
+        duration: 5000,
+      });
       router.refresh();
     });
   }

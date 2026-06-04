@@ -29,6 +29,7 @@ export type Dict = {
     pointsShort: string;
     never: string;
     weekdaysShort: string[];
+    undo: string;
   };
   login: {
     parentTitle: string;
@@ -286,6 +287,7 @@ export type Dict = {
     LOGIN_PARENT: string;
     LOGIN_CHILD: string;
     PIN_RESET: string;
+    TASK_UNCREDITED: string;
   };
   errors: {
     notAuthenticated: string;
@@ -339,6 +341,7 @@ export const ru: Dict = {
     pointsShort: "очк.",
     never: "никогда",
     weekdaysShort: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    undo: "Отменить",
   },
   login: {
     parentTitle: "Вход для родителя",
@@ -603,6 +606,7 @@ export const ru: Dict = {
     LOGIN_PARENT: "Вход родителя",
     LOGIN_CHILD: "Вход ребёнка",
     PIN_RESET: "Сброс PIN",
+    TASK_UNCREDITED: "Начисление отменено",
   },
   errors: {
     notAuthenticated: "Нужно войти",

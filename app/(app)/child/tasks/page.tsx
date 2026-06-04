@@ -15,6 +15,7 @@ import {
   createChildTasksFromPresetsAction,
   completePresetAsChildAction,
   creditExistingTaskAsChildAction,
+  uncreditTaskAction,
 } from "@/app/(app)/child/tasks/actions";
 import { getT, getLocale } from "@/lib/i18n/server";
 
@@ -69,6 +70,7 @@ export default async function ChildTasks() {
               presets={resolved}
               action={createChildTasksFromPresetsAction}
               completeAction={completePresetAsChildAction}
+              undoAction={uncreditTaskAction}
               redirectTo="/child/dashboard"
             />
           </CardContent>
@@ -102,6 +104,7 @@ export default async function ChildTasks() {
         <UserTasksPicker
           tasks={rows}
           completeAction={creditExistingTaskAsChildAction}
+          undoAction={uncreditTaskAction}
           mode="child"
         />
       )}

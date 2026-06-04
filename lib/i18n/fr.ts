@@ -34,6 +34,7 @@ export const fr: Dict = {
     pointsShort: "pts",
     never: "jamais",
     weekdaysShort: ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+    undo: "Annuler",
   },
   login: {
     parentTitle: "Connexion parent",
@@ -301,6 +302,7 @@ export const fr: Dict = {
     LOGIN_PARENT: "Connexion parent",
     LOGIN_CHILD: "Connexion enfant",
     PIN_RESET: "Réinitialisation du PIN",
+    TASK_UNCREDITED: "Crédit annulé",
   },
   errors: {
     notAuthenticated: "Il faut se connecter",

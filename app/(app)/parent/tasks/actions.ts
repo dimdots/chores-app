@@ -12,6 +12,7 @@ import {
   markTaskCompletedByParent,
   createAndCompleteAdHocTask,
   creditExistingTask,
+  uncreditAssignedTask,
 } from "@/lib/services/tasks";
 import { prisma } from "@/lib/db/prisma";
 import { getT } from "@/lib/i18n/server";
@@ -191,11 +192,25 @@ export async function createTasksFromPresetsAction(
 
 export async function markTaskCompleteByParentAction(
   assignedTaskId: string,
-): Promise<Res> {
+): Promise<
+  { ok: true; assignedTaskId: string; pointsAwarded: number } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const s = await assertParent();
-    await markTaskCompletedByParent(s.familyId, assignedTaskId, s.userId);
+    const updated = await markTaskCompletedByParent(s.familyId, assignedTaskId, s.userId);
+    revalidate();
+    return { ok: true, assignedTaskId: updated.id, pointsAwarded: updated.pointsAwarded };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+export async function uncreditTaskAction(assignedTaskId: string): Promise<Res> {
+  const t = getT();
+  try {
+    const s = await assertParent();
+    await uncreditAssignedTask(s.familyId, assignedTaskId, s.userId);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -208,7 +223,9 @@ export async function completePresetAsParentAction(input: {
   description?: string | null;
   categoryId: string;
   points: number;
-}): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+}): Promise<
+  { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const s = await assertParent();
@@ -216,7 +233,7 @@ export async function completePresetAsParentAction(input: {
     if (!onlyChildId) {
       return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
     }
-    await createAndCompleteAdHocTask(
+    const assigned = await createAndCompleteAdHocTask(
       s.familyId,
       {
         title: input.title,
@@ -228,7 +245,11 @@ export async function completePresetAsParentAction(input: {
       s.userId,
     );
     revalidate();
-    return { ok: true, pointsAwarded: Math.max(0, Math.floor(input.points)) };
+    return {
+      ok: true,
+      pointsAwarded: Math.max(0, Math.floor(input.points)),
+      assignedTaskId: assigned.id,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
@@ -269,7 +290,9 @@ export async function deleteTasksBulkAction(
  */
 export async function creditExistingTaskAsParentAction(
   taskDefinitionId: string,
-): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const s = await assertParent();
@@ -279,7 +302,7 @@ export async function creditExistingTaskAsParentAction(
     }
     const r = await creditExistingTask(s.familyId, taskDefinitionId, onlyChildId, s.userId);
     revalidate();
-    return { ok: true, pointsAwarded: r.pointsAwarded };
+    return { ok: true, pointsAwarded: r.pointsAwarded, assignedTaskId: r.assignedTaskId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }

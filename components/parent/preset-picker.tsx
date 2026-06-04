@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useT } from "@/lib/i18n/client";
+import { useToast } from "@/components/ui/toast";
 
 // A single preset row prepared server-side: the category name from the
 // preset catalog has already been resolved to a concrete categoryId so the
@@ -39,6 +40,7 @@ export function PresetPicker({
   presets,
   action,
   completeAction,
+  undoAction,
   redirectTo,
 }: {
   presets: ResolvedPreset[];
@@ -47,14 +49,22 @@ export function PresetPicker({
   ) => Promise<{ ok: true; created: number } | { ok: false; error: string }>;
   // Per-row "instant credit" for a single preset. Optional — we only render
   // the "Готово" button if the caller wires this in. Returns the points
-  // actually awarded so the UI can flash a toast.
+  // actually awarded plus the new AssignedTask id so the UI can flash an
+  // undo toast.
   completeAction?: (
     item: PresetItem,
-  ) => Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }>;
+  ) => Promise<
+    { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+  >;
+  // Rolls back a credit fired by completeAction (the toast's Undo).
+  undoAction?: (
+    assignedTaskId: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   redirectTo: string;
 }) {
   const t = useT();
   const router = useRouter();
+  const toast = useToast();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // Per-row "completing" + "completed" tracking for the instant-credit flow.
@@ -135,6 +145,25 @@ export function PresetPicker({
         return;
       }
       setCompleted((prev) => ({ ...prev, [p.key]: res.pointsAwarded }));
+      if (undoAction) {
+        const creditedId = res.assignedTaskId;
+        toast({
+          message: `+${res.pointsAwarded} ${t.app.pointsShort}`,
+          action: {
+            label: t.app.undo,
+            run: async () => {
+              await undoAction(creditedId);
+              setCompleted((prev) => {
+                const next = { ...prev };
+                delete next[p.key];
+                return next;
+              });
+              router.refresh();
+            },
+          },
+          duration: 5000,
+        });
+      }
       // Refresh server data (PointsHero / activity feed) without leaving the
       // page; the kid stays in the picker so they can quickly credit a few
       // things in a row.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useT } from "@/lib/i18n/client";
+import { useToast } from "@/components/ui/toast";
 
 export type UserTaskRow = {
   id: string;
@@ -27,6 +28,7 @@ export type UserTaskRow = {
 export function UserTasksPicker({
   tasks,
   completeAction,
+  undoAction,
   deleteAction,
   assignAction,
   mode = "parent",
@@ -34,7 +36,13 @@ export function UserTasksPicker({
   tasks: UserTaskRow[];
   completeAction: (
     taskDefinitionId: string,
-  ) => Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }>;
+  ) => Promise<
+    { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+  >;
+  // Rolls back a credit fired by completeAction (the toast's Undo).
+  undoAction?: (
+    assignedTaskId: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   deleteAction?: (
     taskIds: string[],
   ) => Promise<{ ok: true; deleted: number } | { ok: false; error: string }>;
@@ -48,6 +56,7 @@ export function UserTasksPicker({
   const t = useT();
   const selectable = mode === "parent";
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [completing, setCompleting] = useState<Record<string, boolean>>({});
@@ -98,6 +107,25 @@ export function UserTasksPicker({
       }
       setCompleted((prev) => ({ ...prev, [task.id]: res.pointsAwarded }));
       setCompleting((prev) => ({ ...prev, [task.id]: false }));
+      if (undoAction) {
+        const creditedId = res.assignedTaskId;
+        toast({
+          message: `+${res.pointsAwarded} ${t.app.pointsShort}`,
+          action: {
+            label: t.app.undo,
+            run: async () => {
+              await undoAction(creditedId);
+              setCompleted((prev) => {
+                const next = { ...prev };
+                delete next[task.id];
+                return next;
+              });
+              router.refresh();
+            },
+          },
+          duration: 5000,
+        });
+      }
       router.refresh();
     });
   }

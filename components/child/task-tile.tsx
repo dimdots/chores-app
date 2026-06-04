@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { TaskStatusPill } from "@/components/shared/status-pill";
 import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
-import { markTaskCompleteAction } from "@/app/(app)/child/tasks/actions";
+import { useToast } from "@/components/ui/toast";
+import {
+  markTaskCompleteAction,
+  uncreditTaskAction,
+} from "@/app/(app)/child/tasks/actions";
 
 export type ChildTaskTileData = {
   id: string;
@@ -22,6 +26,7 @@ export function TaskTile({ task }: { task: ChildTaskTileData }) {
   const t = useT();
   const locale = useLocale();
   const router = useRouter();
+  const toast = useToast();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +38,18 @@ export function TaskTile({ task }: { task: ChildTaskTileData }) {
         setError(res.error);
         return;
       }
+      const creditedId = res.assignedTaskId;
+      toast({
+        message: `+${res.pointsAwarded} ${t.app.pointsShort}`,
+        action: {
+          label: t.app.undo,
+          run: async () => {
+            await uncreditTaskAction(creditedId);
+            router.refresh();
+          },
+        },
+        duration: 5000,
+      });
       router.refresh();
     });
   }

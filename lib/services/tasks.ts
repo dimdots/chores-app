@@ -8,7 +8,7 @@ import {
 import { logEvent } from "./activity-log";
 import { startOfLocalDay, localWeekday } from "@/lib/utils/dates";
 import { applyPointsDelta } from "./points";
-import { updateStreakAfterTaskApproval } from "./streaks";
+import { updateStreakAfterTaskApproval, calculateCurrentStreak } from "./streaks";
 import { getT } from "@/lib/i18n/server";
 
 // ---------- Definitions ----------
@@ -371,6 +371,81 @@ export async function createAndCompleteAdHocTask(
     await updateStreakAfterTaskApproval(childId, now, tx);
     return assigned;
   });
+}
+
+/**
+ * Reverse a previously-credited task — backs the "Undo" on the Done toast.
+ * Inverse of `_completeAssignedTask` / `creditExistingTask`:
+ *   - verifies the task belongs to `familyId` and is APPROVED
+ *   - subtracts the awarded points (logs TASK_UNCREDITED, a negative delta)
+ *   - resets the AssignedTask to ASSIGNED, clearing the approval fields and
+ *     pointsAwarded
+ *   - recomputes the streak from the (now-reduced) approved history
+ *
+ * Non-destructive: the row returns to the to-do list rather than being
+ * deleted, which guarantees the points reversal is exact. Throws if the
+ * refund would push the balance negative (points already spent) — the 5s
+ * undo window makes that vanishingly rare.
+ */
+export async function uncreditAssignedTask(
+  familyId: string,
+  assignedTaskId: string,
+  actorUserId: string,
+) {
+  const t = getT();
+  const assigned = await prisma.assignedTask.findFirst({
+    where: { id: assignedTaskId, taskDefinition: { familyId } },
+    select: { id: true, childId: true, status: true, pointsAwarded: true },
+  });
+  if (!assigned) throw new Error(t.errors.taskNotFound);
+  if (assigned.status !== "APPROVED") throw new Error(t.errors.alreadyProcessed);
+  const { childId } = assigned;
+  const refund = assigned.pointsAwarded;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.assignedTask.update({
+      where: { id: assigned.id, status: "APPROVED" },
+      data: {
+        status: "ASSIGNED",
+        approvedAt: null,
+        approvedById: null,
+        completionRequestedAt: null,
+        pointsAwarded: 0,
+      },
+    });
+    if (refund !== 0) {
+      await applyPointsDelta(
+        {
+          childId,
+          delta: -refund,
+          actorUserId,
+          eventType: "TASK_UNCREDITED",
+          referenceType: "AssignedTask",
+          referenceId: assigned.id,
+        },
+        tx,
+      );
+    }
+  });
+
+  // Recompute the streak from committed history so it stays honest after the
+  // reversal. Done outside the points tx — calculateCurrentStreak reads
+  // committed state and a one-tick lag is harmless.
+  const newStreak = await calculateCurrentStreak(childId);
+  const latest = await prisma.assignedTask.findFirst({
+    where: { childId, status: "APPROVED", approvedAt: { not: null } },
+    orderBy: { approvedAt: "desc" },
+    select: { approvedAt: true },
+  });
+  await prisma.childProfile.update({
+    where: { id: childId },
+    data: {
+      currentStreak: newStreak,
+      lastStreakDate: latest?.approvedAt ? startOfLocalDay(latest.approvedAt) : null,
+    },
+  });
+
+  return { assignedTaskId: assigned.id, refunded: refund };
 }
 
 async function _completeAssignedTask(

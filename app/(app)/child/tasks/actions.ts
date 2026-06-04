@@ -8,6 +8,7 @@ import {
   assignTaskToChild,
   createAndCompleteAdHocTask,
   creditExistingTask,
+  uncreditAssignedTask,
 } from "@/lib/services/tasks";
 import { getT } from "@/lib/i18n/server";
 
@@ -21,11 +22,31 @@ function revalidate() {
   revalidatePath("/parent/dashboard");
 }
 
-export async function markTaskCompleteAction(assignedTaskId: string): Promise<Res> {
+export async function markTaskCompleteAction(
+  assignedTaskId: string,
+): Promise<
+  { ok: true; assignedTaskId: string; pointsAwarded: number } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const session = await assertChild();
-    await markTaskCompletedByChild(assignedTaskId, session.childId, session.userId);
+    const updated = await markTaskCompletedByChild(
+      assignedTaskId,
+      session.childId,
+      session.userId,
+    );
+    revalidate();
+    return { ok: true, assignedTaskId: updated.id, pointsAwarded: updated.pointsAwarded };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+export async function uncreditTaskAction(assignedTaskId: string): Promise<Res> {
+  const t = getT();
+  try {
+    const s = await assertChild();
+    await uncreditAssignedTask(s.familyId, assignedTaskId, s.userId);
     revalidate();
     return { ok: true };
   } catch (e) {
@@ -35,13 +56,15 @@ export async function markTaskCompleteAction(assignedTaskId: string): Promise<Re
 
 export async function creditExistingTaskAsChildAction(
   taskDefinitionId: string,
-): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const s = await assertChild();
     const r = await creditExistingTask(s.familyId, taskDefinitionId, s.childId, s.userId);
     revalidate();
-    return { ok: true, pointsAwarded: r.pointsAwarded };
+    return { ok: true, pointsAwarded: r.pointsAwarded, assignedTaskId: r.assignedTaskId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
@@ -52,11 +75,13 @@ export async function completePresetAsChildAction(input: {
   description?: string | null;
   categoryId: string;
   points: number;
-}): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+}): Promise<
+  { ok: true; pointsAwarded: number; assignedTaskId: string } | { ok: false; error: string }
+> {
   const t = getT();
   try {
     const s = await assertChild();
-    await createAndCompleteAdHocTask(
+    const assigned = await createAndCompleteAdHocTask(
       s.familyId,
       {
         title: input.title,
@@ -68,7 +93,11 @@ export async function completePresetAsChildAction(input: {
       s.userId,
     );
     revalidate();
-    return { ok: true, pointsAwarded: Math.max(0, Math.floor(input.points)) };
+    return {
+      ok: true,
+      pointsAwarded: Math.max(0, Math.floor(input.points)),
+      assignedTaskId: assigned.id,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
