@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getT } from "@/lib/i18n/server";
 import { SignupForm } from "./signup-form";
+import { LocaleToggle } from "@/components/public/locale-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,10 @@ export default async function SignupPage({
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
-            <CardTitle>{t.signup.title}</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>{t.signup.title}</CardTitle>
+              <LocaleToggle />
+            </div>
           </CardHeader>
           <CardContent>
             {token.length === 0 ? (

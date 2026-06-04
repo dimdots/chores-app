@@ -6,6 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { ChildLoginForm } from "./child-login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LocaleToggle } from "@/components/public/locale-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,10 @@ export default async function ChildLoginPage() {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
-            <CardTitle>{t.login.childTitle}</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>{t.login.childTitle}</CardTitle>
+              <LocaleToggle />
+            </div>
           </CardHeader>
           <CardContent>
             {children.length === 0 ? (

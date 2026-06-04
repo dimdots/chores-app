@@ -6,6 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { LoginPicker } from "./login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LocaleToggle } from "@/components/public/locale-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,10 @@ export default async function LoginPage() {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
-            <CardTitle>{t.login.pickerTitle}</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>{t.login.pickerTitle}</CardTitle>
+              <LocaleToggle />
+            </div>
           </CardHeader>
           <CardContent>
             {items.length === 0 ? (
