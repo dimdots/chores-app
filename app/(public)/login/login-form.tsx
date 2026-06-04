@@ -1,13 +1,96 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { useT } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 type Profile = { id: string; name: string; role: "PARENT" | "CHILD" };
+
+/**
+ * Six single-digit boxes that together hold one 6-char PIN. `value` is the
+ * joined string (source of truth lives in the parent); typing auto-advances,
+ * Backspace on an empty box steps back, and pasting a code fills all boxes.
+ */
+function PinBoxes({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] ?? "");
+
+  function setAt(i: number, d: string) {
+    const next = digits.slice();
+    next[i] = d;
+    onChange(next.join("").slice(0, 6));
+  }
+
+  function handleChange(i: number, raw: string) {
+    const cleaned = raw.replace(/\D/g, "");
+    if (!cleaned) {
+      setAt(i, "");
+      return;
+    }
+    setAt(i, cleaned[cleaned.length - 1]!);
+    if (i < 5) refs.current[i + 1]?.focus();
+  }
+
+  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace") {
+      if (digits[i]) {
+        setAt(i, "");
+      } else if (i > 0) {
+        refs.current[i - 1]?.focus();
+        setAt(i - 1, "");
+      }
+    } else if (e.key === "ArrowLeft" && i > 0) {
+      refs.current[i - 1]?.focus();
+    } else if (e.key === "ArrowRight" && i < 5) {
+      refs.current[i + 1]?.focus();
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!text) return;
+    e.preventDefault();
+    onChange(text);
+    refs.current[Math.min(text.length, 5)]?.focus();
+  }
+
+  return (
+    <div className="flex justify-between gap-2" onPaste={handlePaste}>
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          id={i === 0 ? "pin-0" : undefined}
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus={i === 0}
+          inputMode="numeric"
+          autoComplete={i === 0 ? "one-time-code" : "off"}
+          pattern="\d{1}"
+          maxLength={1}
+          value={d}
+          disabled={disabled}
+          aria-label={`PIN ${i + 1}`}
+          onChange={(e) => handleChange(i, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          className="h-14 w-full rounded-xl border border-slate-200 bg-white text-center text-2xl font-semibold tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
+        />
+      ))}
+    </div>
+  );
+}
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -136,20 +219,10 @@ export function LoginPicker({ profiles }: { profiles: Profile[] }) {
         </Button>
       </div>
       <div>
-        <Label htmlFor="pin">{t.login.pin}</Label>
-        <Input
-          id="pin"
-          autoFocus
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="\d{6}"
-          maxLength={6}
-          minLength={6}
-          required
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          className="text-center text-2xl tracking-[0.5em]"
-        />
+        <Label htmlFor="pin-0">{t.login.pin}</Label>
+        <div className="mt-1">
+          <PinBoxes value={pin} onChange={setPin} disabled={pending} />
+        </div>
       </div>
       {error ? <p className="text-sm text-danger-700">{error}</p> : null}
       <Button type="submit" fullWidth disabled={pending} size="lg">
