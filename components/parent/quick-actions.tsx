@@ -23,7 +23,7 @@ export function QuickActions() {
             {t.parentDashboard.createReward}
           </Button>
         </Link>
-        <Link href="/parent/settings">
+        <Link href="/parent/settings#adjustment">
           <Button variant="secondary" fullWidth>
             {t.parentDashboard.addBonus}
           </Button>

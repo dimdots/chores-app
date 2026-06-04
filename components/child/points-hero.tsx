@@ -31,8 +31,12 @@ export function PointsHero({
           <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1">
             ★ {t.childDashboard.level} {level}
           </span>
-          <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1">
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 cursor-help"
+            title={t.childDashboard.streakHelp}
+          >
             🔥 {streak > 0 ? `${streak} ${t.childDashboard.days}` : t.childDashboard.streakZero}
+            <span aria-hidden className="opacity-70">ⓘ</span>
           </span>
         </div>
       </div>

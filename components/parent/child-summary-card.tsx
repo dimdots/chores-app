@@ -29,7 +29,10 @@ export function ChildSummaryCard({
             {formatPoints(points, locale)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {t.childDashboard.level} {level} · 🔥 {streak} {t.childDashboard.days}
+            {t.childDashboard.level} {level} ·{" "}
+            <span className="cursor-help" title={t.childDashboard.streakHelp}>
+              🔥 {streak} {t.childDashboard.days} <span aria-hidden className="opacity-70">ⓘ</span>
+            </span>
           </p>
         </CardContent>
       </Card>

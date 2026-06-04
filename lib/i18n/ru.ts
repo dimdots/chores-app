@@ -116,6 +116,7 @@ export type Dict = {
     days: string;
     streakZero: string;
     maxLevel: string;
+    streakHelp: string;
   };
   tasks: {
     list: string;
@@ -431,6 +432,7 @@ export const ru: Dict = {
     days: "дн.",
     streakZero: "Серии пока нет",
     maxLevel: "Макс. уровень",
+    streakHelp: "Завершайте хотя бы одно задание каждый день, чтобы поддерживать серию.",
   },
   tasks: {
     list: "Задания",

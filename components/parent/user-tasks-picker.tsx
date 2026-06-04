@@ -239,7 +239,7 @@ export function UserTasksPicker({
                             ? `+${awarded}`
                             : isCompleting
                               ? t.app.loading
-                              : t.tasks.presetsCreditNow}
+                              : `✓ ${t.tasks.presetsCreditNow}`}
                         </Button>
                       </li>
                     );

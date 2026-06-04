@@ -125,6 +125,7 @@ export const fr: Dict = {
     days: "j.",
     streakZero: "Pas encore de série",
     maxLevel: "Niveau max",
+    streakHelp: "Termine au moins une tâche chaque jour pour garder ta série.",
   },
   tasks: {
     list: "Tâches",

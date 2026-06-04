@@ -63,7 +63,7 @@ export default async function ParentSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="adjustment" className="scroll-mt-4">
         <CardHeader>
           <CardTitle>{t.points.adjustTitle}</CardTitle>
         </CardHeader>

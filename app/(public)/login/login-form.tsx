@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useT } from "@/lib/i18n/client";
+import { cn } from "@/lib/utils/cn";
 
 type Profile = { id: string; name: string; role: "PARENT" | "CHILD" };
 
@@ -52,9 +53,16 @@ export function LoginPicker({ profiles }: { profiles: Profile[] }) {
                 <div className="text-base font-medium text-slate-900 leading-tight">
                   {p.name}
                 </div>
-                <div className="text-xs text-slate-500">
+                <span
+                  className={cn(
+                    "mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    p.role === "PARENT"
+                      ? "bg-brand-100 text-brand-800"
+                      : "bg-success-50 text-success-700",
+                  )}
+                >
                   {p.role === "PARENT" ? t.login.roleParent : t.login.roleChild}
-                </div>
+                </span>
               </div>
             </button>
           ))}

@@ -283,7 +283,7 @@ export function PresetPicker({
                               ? `+${awarded}`
                               : isCompleting
                                 ? t.app.loading
-                                : t.tasks.presetsCreditNow}
+                                : `✓ ${t.tasks.presetsCreditNow}`}
                           </Button>
                         ) : null}
                       </li>

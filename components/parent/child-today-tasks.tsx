@@ -129,7 +129,7 @@ function ParentTaskRow({ task }: { task: ParentTodayTaskRow }) {
           <div className="mt-1">
             {task.status === "ASSIGNED" ? (
               <Button onClick={onDone} disabled={pending} size="sm" variant="success">
-                {t.tasks.markDone}
+                ✓ {t.tasks.markDone}
               </Button>
             ) : (
               <TaskStatusPill status={task.status} />
