@@ -29,19 +29,24 @@ export function UserTasksPicker({
   completeAction,
   deleteAction,
   assignAction,
+  mode = "parent",
 }: {
   tasks: UserTaskRow[];
   completeAction: (
     taskDefinitionId: string,
   ) => Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }>;
-  deleteAction: (
+  deleteAction?: (
     taskIds: string[],
   ) => Promise<{ ok: true; deleted: number } | { ok: false; error: string }>;
-  assignAction: (
+  assignAction?: (
     taskIds: string[],
   ) => Promise<{ ok: true; assigned: number } | { ok: false; error: string }>;
+  // "child" mode hides the multi-select checkboxes and the bulk action bar:
+  // a child can only credit existing tasks, not delete or bulk-assign them.
+  mode?: "parent" | "child";
 }) {
   const t = useT();
+  const selectable = mode === "parent";
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -98,6 +103,7 @@ export function UserTasksPicker({
   }
 
   function submitDelete() {
+    if (!deleteAction) return;
     const ids = Array.from(selected);
     if (ids.length === 0) return;
     if (!confirmDelete) {
@@ -121,6 +127,7 @@ export function UserTasksPicker({
   }
 
   function submitAssign() {
+    if (!assignAction) return;
     const ids = Array.from(selected);
     if (ids.length === 0) return;
     setError(null);
@@ -146,13 +153,15 @@ export function UserTasksPicker({
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900">{category}</h3>
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(rows)}
-                    className="text-xs font-medium text-brand-700 hover:text-brand-800"
-                  >
-                    {allSelected ? t.tasks.presetsDeselectAll : t.tasks.presetsSelectAll}
-                  </button>
+                  {selectable ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(rows)}
+                      className="text-xs font-medium text-brand-700 hover:text-brand-800"
+                    >
+                      {allSelected ? t.tasks.presetsDeselectAll : t.tasks.presetsSelectAll}
+                    </button>
+                  ) : null}
                 </div>
                 <ul className="divide-y divide-slate-100">
                   {rows.map((task) => {
@@ -167,13 +176,15 @@ export function UserTasksPicker({
                           "py-2 flex items-center gap-3 " + (isDone ? "opacity-60" : "")
                         }
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSelected(task.id)}
-                          aria-label={task.title}
-                          className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
-                        />
+                        {selectable ? (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleSelected(task.id)}
+                            aria-label={task.title}
+                            className="h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
+                          />
+                        ) : null}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 break-words">
                             {task.title}
@@ -214,7 +225,7 @@ export function UserTasksPicker({
 
       {error ? <p className="text-sm text-danger-700">{error}</p> : null}
 
-      {selected.size > 0 ? (
+      {selectable && selected.size > 0 ? (
         <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-card">
           <span className="text-sm text-slate-600">
             {t.tasks.presetsSelected.replace("{count}", String(selected.size))}

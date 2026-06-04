@@ -7,6 +7,7 @@ import {
   createTaskDefinition,
   assignTaskToChild,
   createAndCompleteAdHocTask,
+  creditExistingTask,
 } from "@/lib/services/tasks";
 import { getT } from "@/lib/i18n/server";
 
@@ -27,6 +28,20 @@ export async function markTaskCompleteAction(assignedTaskId: string): Promise<Re
     await markTaskCompletedByChild(assignedTaskId, session.childId, session.userId);
     revalidate();
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+export async function creditExistingTaskAsChildAction(
+  taskDefinitionId: string,
+): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  const t = getT();
+  try {
+    const s = await assertChild();
+    const r = await creditExistingTask(s.familyId, taskDefinitionId, s.childId, s.userId);
+    revalidate();
+    return { ok: true, pointsAwarded: r.pointsAwarded };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
   }
