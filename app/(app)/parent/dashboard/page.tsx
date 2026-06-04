@@ -7,19 +7,16 @@ import {
 } from "@/components/parent/child-today-tasks";
 import { QuickActions } from "@/components/parent/quick-actions";
 import { WeeklyChart } from "@/components/parent/weekly-chart";
-import { ReactionBar } from "@/components/shared/reaction-bar";
+import { RecentActivity } from "@/components/shared/recent-activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getT, getLocale } from "@/lib/i18n/server";
-import { formatDateTime } from "@/lib/utils/dates";
-import { formatSignedPoints } from "@/lib/utils/format";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentDashboard() {
 
   const t = getT();
-  const locale = getLocale();
   const session = await requireParent();
   const data = await getParentDashboardData(session.familyId, session.userId);
 
@@ -118,34 +115,7 @@ export default async function ParentDashboard() {
           <CardTitle>{t.parentDashboard.recentActivity}</CardTitle>
         </CardHeader>
         <CardContent>
-          {data.recent.length === 0 ? (
-            <p className="text-sm text-slate-500">{t.app.empty}</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 text-sm">
-              {data.recent.map((r) => (
-                <li key={r.id} className="py-2.5 space-y-1.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="break-words min-w-0">
-                      {t.activity[r.eventType as keyof typeof t.activity] ?? r.eventType}
-                      {r.referenceLabel ? (
-                        <span className="text-slate-900 font-medium"> · {r.referenceLabel}</span>
-                      ) : null}
-                      {r.child ? ` · ${r.child.displayName}` : ""}
-                    </span>
-                    <span className="text-xs text-slate-500 shrink-0 text-right">
-                      {formatDateTime(r.createdAt, locale)}
-                      {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta, locale)}` : ""}
-                    </span>
-                  </div>
-                  <ReactionBar
-                    activityLogId={r.id}
-                    counts={r.reactions.counts}
-                    mine={r.reactions.mine}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          <RecentActivity items={data.recent} />
         </CardContent>
       </Card>
     </div>
