@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ParentLayout({ children }: { children: React.ReactNode }) {
   await requireParent();
-  // Note: /parent/approvals is intentionally omitted from nav (pivot 2026-04-19).
   // Built inside the component so labels pick up the active locale.
   const t = getT();
   const nav = [
     { href: "/parent/dashboard", label: t.nav.dashboard },
     { href: "/parent/tasks", label: t.nav.tasks },
+    { href: "/parent/approvals", label: t.nav.approvals },
     { href: "/parent/rewards", label: t.nav.rewards },
     { href: "/parent/reports", label: t.nav.reports },
     { href: "/parent/settings", label: t.nav.settings },

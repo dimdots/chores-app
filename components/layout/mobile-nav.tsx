@@ -20,20 +20,20 @@ function pickActiveHref(nav: NavItem[], pathname: string): string | null {
 
 export function MobileNav({ nav }: { nav: NavItem[] }) {
   const pathname = usePathname() ?? "";
-  const items = nav.slice(0, 4);
-  const activeHref = pickActiveHref(items, pathname);
+  const activeHref = pickActiveHref(nav, pathname);
   return (
     <nav className="mx-auto max-w-5xl px-2">
-      <ul className="grid grid-cols-4 gap-1">
-        {items.map((n) => {
+      <ul className={cn("flex gap-1", nav.length >= 5 && "text-[10px]")}>
+        {nav.map((n) => {
           const isActive = n.href === activeHref;
           return (
-            <li key={n.href}>
+            <li key={n.href} className="flex-1 min-w-0">
               <Link
                 href={n.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "flex items-center justify-center py-3 text-xs font-medium transition-colors rounded-lg",
+                  nav.length >= 5 && "text-[10px] px-0.5",
                   isActive
                     ? "bg-brand-50 text-brand-800"
                     : "text-slate-600 hover:text-slate-900",
