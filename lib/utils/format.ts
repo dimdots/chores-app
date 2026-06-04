@@ -1,9 +1,16 @@
+import type { Locale } from "@/lib/i18n";
+
 /**
- * Russian pluralization for "очко / очка / очков".
- * Rules: 1, 21, 31… → "очко"; 2-4, 22-24… → "очка"; 0, 5-20, 25-30… → "очков".
+ * Locale-aware noun for "points". Russian needs three forms (очко / очка /
+ * очков); French and English use singular/plural.
  */
-export function pluralizePoints(n: number): string {
+export function pluralizePoints(n: number, locale: Locale = "ru"): string {
   const abs = Math.abs(n);
+  if (locale === "fr") {
+    // French: "point" / "points". Singular only for ±1 (and 0 uses plural).
+    return abs === 1 ? "point" : "points";
+  }
+  // Russian (default).
   const mod100 = abs % 100;
   const mod10 = abs % 10;
   if (mod100 >= 11 && mod100 <= 14) return "очков";
@@ -12,12 +19,12 @@ export function pluralizePoints(n: number): string {
   return "очков";
 }
 
-export function formatPoints(n: number): string {
-  return `${n} ${pluralizePoints(n)}`;
+export function formatPoints(n: number, locale: Locale = "ru"): string {
+  return `${n} ${pluralizePoints(n, locale)}`;
 }
 
-export function formatSignedPoints(n: number): string {
-  if (n > 0) return `+${n} ${pluralizePoints(n)}`;
-  if (n < 0) return `${n} ${pluralizePoints(n)}`;
-  return `0 ${pluralizePoints(0)}`;
+export function formatSignedPoints(n: number, locale: Locale = "ru"): string {
+  if (n > 0) return `+${n} ${pluralizePoints(n, locale)}`;
+  if (n < 0) return `${n} ${pluralizePoints(n, locale)}`;
+  return `0 ${pluralizePoints(0, locale)}`;
 }

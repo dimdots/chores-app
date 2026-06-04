@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { assignTaskAction } from "@/app/(app)/parent/tasks/actions";
 
 type ChildOpt = { id: string; displayName: string };
@@ -18,6 +18,7 @@ export function AssignTaskPanel({
   taskId: string;
   children: ChildOpt[];
 }) {
+  const t = useT();
   const router = useRouter();
   const [childId, setChildId] = useState(children[0]?.id ?? "");
   const [date, setDate] = useState("");

@@ -8,7 +8,7 @@ import {
   assignTaskToChild,
   createAndCompleteAdHocTask,
 } from "@/lib/services/tasks";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 type Res = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -21,6 +21,7 @@ function revalidate() {
 }
 
 export async function markTaskCompleteAction(assignedTaskId: string): Promise<Res> {
+  const t = getT();
   try {
     const session = await assertChild();
     await markTaskCompletedByChild(assignedTaskId, session.childId, session.userId);
@@ -37,6 +38,7 @@ export async function completePresetAsChildAction(input: {
   categoryId: string;
   points: number;
 }): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertChild();
     await createAndCompleteAdHocTask(
@@ -65,6 +67,7 @@ export async function createChildTasksFromPresetsAction(
     points: number;
   }>,
 ): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertChild();
     if (!Array.isArray(items) || items.length === 0) {
@@ -106,6 +109,7 @@ export async function createChildTaskAction(input: {
   recurrenceType?: "NONE" | "DAILY" | "WEEKLY" | "WEEKDAYS";
   recurrenceDays?: number[] | null;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertChild();
     const recurrenceType = input.recurrenceType ?? "NONE";

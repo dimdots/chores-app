@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { hashPin, isSixDigitPin } from "@/lib/auth/pin";
 import { logEvent, titlesForActivityLogs } from "./activity-log";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { generateRecurringTasksIfNeeded, listAssignedTasksForChildToday } from "./tasks";
 import { listAvailableRewardsForChild, listChildRewardHistory } from "./rewards";
 import { resetStreakIfNeeded } from "./streaks";
@@ -27,6 +27,7 @@ export async function createChild(args: {
   displayName?: string;
   pin: string;
 }): Promise<{ userId: string; childId: string }> {
+  const t = getT();
   if (!isSixDigitPin(args.pin)) throw new Error(t.errors.pinMustBeSixDigits);
   const pinHash = await hashPin(args.pin);
   const user = await prisma.user.create({
@@ -46,6 +47,7 @@ export async function createChild(args: {
 }
 
 export async function setChildActive(familyId: string, childId: string, active: boolean) {
+  const t = getT();
   const child = await prisma.childProfile.findFirst({
     where: { id: childId, user: { familyId } },
   });
@@ -55,6 +57,7 @@ export async function setChildActive(familyId: string, childId: string, active: 
 
 /** Cycle reset — records an ActivityLog event; no destructive mutation. */
 export async function resetCycle(familyId: string, childId: string, actorUserId: string) {
+  const t = getT();
   const child = await prisma.childProfile.findFirst({
     where: { id: childId, user: { familyId } },
   });
@@ -84,6 +87,7 @@ export async function getChildDashboardData(
   childId: string,
   viewerUserId: string,
 ) {
+  const t = getT();
   // Confirm the child belongs to the caller's family before doing any work.
   const ownership = await prisma.childProfile.findFirst({
     where: { id: childId, user: { familyId } },

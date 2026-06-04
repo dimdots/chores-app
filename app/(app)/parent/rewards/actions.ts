@@ -8,7 +8,7 @@ import {
   archiveReward,
   restoreReward,
 } from "@/lib/services/rewards";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 type Res = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -26,6 +26,7 @@ export async function createRewardAction(input: {
   expiresAt?: string | null;
   quantityLimit?: number | null;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const r = await createReward(s.familyId, input, s.userId);
@@ -45,6 +46,7 @@ export async function updateRewardAction(input: {
   quantityLimit?: number | null;
   isActive?: boolean;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await updateReward(s.familyId, input);
@@ -56,6 +58,7 @@ export async function updateRewardAction(input: {
 }
 
 export async function archiveRewardAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await archiveReward(s.familyId, id);
@@ -67,6 +70,7 @@ export async function archiveRewardAction(id: string): Promise<Res> {
 }
 
 export async function restoreRewardAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await restoreReward(s.familyId, id);

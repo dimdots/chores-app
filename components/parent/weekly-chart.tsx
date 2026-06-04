@@ -2,7 +2,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 export type WeeklyChartPoint = { date: string; points: number; label: string };
 
@@ -13,6 +13,7 @@ export function WeeklyChart({
   title: string;
   data: WeeklyChartPoint[];
 }) {
+  const t = useT();
   return (
     <Card>
       <CardHeader>

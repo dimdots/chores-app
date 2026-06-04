@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/db/prisma";
+import { getT } from "@/lib/i18n/server";
 
 export type LogEventInput = {
   /** Family the event happened in. Always required after the multi-tenant pivot. */
@@ -47,6 +48,7 @@ export async function logEvent(
 export async function titlesForActivityLogs(
   logs: Array<{ id: string; referenceType: string | null; referenceId: string | null }>,
 ): Promise<Map<string, string>> {
+  const t = getT();
   const out = new Map<string, string>();
   const taskIds = logs
     .filter((l) => l.referenceType === "AssignedTask" && l.referenceId)

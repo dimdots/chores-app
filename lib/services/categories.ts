@@ -6,7 +6,7 @@ import {
   type CategoryCreateInput,
   type CategoryUpdateInput,
 } from "@/lib/validators/category";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export async function listCategories(
   familyId: string,
@@ -19,6 +19,7 @@ export async function listCategories(
 }
 
 export async function createCategory(familyId: string, input: unknown) {
+  const t = getT();
   const parsed = categoryCreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const data: CategoryCreateInput = parsed.data;
@@ -26,6 +27,7 @@ export async function createCategory(familyId: string, input: unknown) {
 }
 
 export async function updateCategory(familyId: string, input: unknown) {
+  const t = getT();
   const parsed = categoryUpdateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { id, ...rest }: CategoryUpdateInput = parsed.data;
@@ -41,6 +43,7 @@ export async function updateCategory(familyId: string, input: unknown) {
 }
 
 export async function archiveCategory(familyId: string, id: string): Promise<void> {
+  const t = getT();
   const cat = await prisma.taskCategory.findFirst({
     where: { id, familyId },
     select: { id: true },

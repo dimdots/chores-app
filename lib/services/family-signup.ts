@@ -2,8 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { familySignupSchema } from "@/lib/validators/auth";
-import { DEFAULT_CATEGORIES } from "@/config/defaults";
-import { t } from "@/lib/i18n/ru";
+import { getT, getLocale } from "@/lib/i18n/server";
 
 /**
  * Token lifetime for invite links. Long enough that you can send it on a
@@ -67,6 +66,7 @@ export async function redeemFamilySignupInvite(input: unknown): Promise<{
   userId: string;
   userName: string;
 }> {
+  const t = getT();
   const parsed = familySignupSchema.safeParse(input);
   if (!parsed.success) {
     throw new FamilySignupError(t.errors.validation, "VALIDATION");
@@ -105,8 +105,11 @@ export async function redeemFamilySignupInvite(input: unknown): Promise<{
       throw new FamilySignupError(t.errors.invalidToken, "TOKEN_USED");
     }
 
+    // Default the new family's locale to whatever the redeemer's browser
+    // / device prefers (from Accept-Language or the fcr_locale cookie).
+    // They can always change it from Settings.
     const family = await tx.family.create({
-      data: { name: familyName, locale: "ru" },
+      data: { name: familyName, locale: getLocale() },
     });
     const user = await tx.user.create({
       data: {
@@ -118,11 +121,14 @@ export async function redeemFamilySignupInvite(input: unknown): Promise<{
         isActive: true,
       },
     });
+    // Seed default categories using the active locale's dict, so the new
+    // family sees category names in their own language. sortOrder mirrors
+    // the array index (10, 20, 30…) to preserve the curated ordering.
     await tx.taskCategory.createMany({
-      data: DEFAULT_CATEGORIES.map((c) => ({
+      data: t.defaultCategories.map((name, i) => ({
         familyId: family.id,
-        name: c.name,
-        sortOrder: c.sortOrder,
+        name,
+        sortOrder: (i + 1) * 10,
       })),
       skipDuplicates: true,
     });

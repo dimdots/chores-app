@@ -6,7 +6,7 @@ import {
 } from "@/lib/validators/reward";
 import { logEvent } from "./activity-log";
 import { applyPointsDelta, InsufficientPointsError } from "./points";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 // ---------- Definitions ----------
 
@@ -15,6 +15,7 @@ export async function createReward(
   input: unknown,
   actorUserId: string,
 ) {
+  const t = getT();
   const parsed = rewardCreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const data = parsed.data;
@@ -33,6 +34,7 @@ export async function createReward(
 }
 
 export async function updateReward(familyId: string, input: unknown) {
+  const t = getT();
   const parsed = rewardUpdateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { id, ...rest } = parsed.data;
@@ -45,6 +47,7 @@ export async function updateReward(familyId: string, input: unknown) {
 }
 
 export async function archiveReward(familyId: string, id: string) {
+  const t = getT();
   const res = await prisma.reward.updateMany({
     where: { id, familyId },
     data: { isActive: false },
@@ -54,6 +57,7 @@ export async function archiveReward(familyId: string, id: string) {
 }
 
 export async function restoreReward(familyId: string, id: string) {
+  const t = getT();
   const res = await prisma.reward.updateMany({
     where: { id, familyId },
     data: { isActive: true },
@@ -142,6 +146,7 @@ export async function requestReward(
   childId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   const parsed = requestRewardSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { rewardId } = parsed.data;
@@ -208,6 +213,7 @@ export async function approveRewardRequest(
   requestId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   return prisma.$transaction(async (tx) => {
     const req = await tx.rewardRequest.findFirst({
       where: { id: requestId, reward: { familyId } },
@@ -257,6 +263,7 @@ export async function rejectRewardRequest(
   reason: string | null,
   actorUserId: string,
 ) {
+  const t = getT();
   return prisma.$transaction(async (tx) => {
     const req = await tx.rewardRequest.findFirst({
       where: { id: requestId, reward: { familyId } },

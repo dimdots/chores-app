@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { ParentLoginForm } from "./parent-login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentLoginPage() {
+
+  const t = getT();
   const session = await getSession();
   if (session) {
     redirect(session.role === "PARENT" ? "/parent/dashboard" : "/child/dashboard");

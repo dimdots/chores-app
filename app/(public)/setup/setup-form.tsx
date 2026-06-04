@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { bootstrapAction } from "./actions";
 
 export function SetupForm() {
+
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState({ token: "", name: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);

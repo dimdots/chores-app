@@ -3,7 +3,7 @@
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import {
   archiveRewardAction,
   restoreRewardAction,
@@ -16,6 +16,7 @@ export function ArchiveRewardButtons({
   id: string;
   isActive: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

@@ -7,7 +7,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import {
   createCategoryAction,
   updateCategoryAction,
@@ -22,6 +22,7 @@ type Cat = {
 };
 
 export function CategoriesEditor({ categories }: { categories: Cat[] }) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

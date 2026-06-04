@@ -5,7 +5,7 @@ import {
   FamilySignupError,
 } from "@/lib/services/family-signup";
 import { setSessionCookie } from "@/lib/auth/session";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export type SignupResult =
   | { ok: true }
@@ -18,6 +18,7 @@ export async function familySignupAction(input: {
   email: string;
   password: string;
 }): Promise<SignupResult> {
+  const t = getT();
   try {
     const { familyId, userId, userName } = await redeemFamilySignupInvite(input);
     // Sign the new parent in immediately — the recipient doesn't need to

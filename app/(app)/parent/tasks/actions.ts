@@ -11,9 +11,10 @@ import {
   assignTaskToChild,
   markTaskCompletedByParent,
   createAndCompleteAdHocTask,
+  creditExistingTask,
 } from "@/lib/services/tasks";
 import { prisma } from "@/lib/db/prisma";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * If the caller's family has exactly one active child, return their id so
@@ -46,6 +47,7 @@ export async function createTaskAction(input: {
   recurrenceType: "NONE" | "DAILY" | "WEEKLY" | "WEEKDAYS";
   recurrenceDays?: number[] | null;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const r = await createTaskDefinition(s.familyId, input, s.userId);
@@ -76,6 +78,7 @@ export async function updateTaskAction(input: {
   recurrenceDays?: number[] | null;
   isActive?: boolean;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await updateTaskDefinition(s.familyId, input);
@@ -87,6 +90,7 @@ export async function updateTaskAction(input: {
 }
 
 export async function archiveTaskAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await archiveTaskDefinition(s.familyId, id);
@@ -98,6 +102,7 @@ export async function archiveTaskAction(id: string): Promise<Res> {
 }
 
 export async function restoreTaskAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await restoreTaskDefinition(s.familyId, id);
@@ -109,6 +114,7 @@ export async function restoreTaskAction(id: string): Promise<Res> {
 }
 
 export async function deleteTaskAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await deleteTaskDefinition(s.familyId, id);
@@ -125,6 +131,7 @@ export async function assignTaskAction(input: {
   scheduledDate?: string | null;
   dueDate?: string | null;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await assignTaskToChild(s.familyId, input);
@@ -143,6 +150,7 @@ export async function createTasksFromPresetsAction(
     points: number;
   }>,
 ): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertParent();
     if (!Array.isArray(items) || items.length === 0) {
@@ -184,6 +192,7 @@ export async function createTasksFromPresetsAction(
 export async function markTaskCompleteByParentAction(
   assignedTaskId: string,
 ): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await markTaskCompletedByParent(s.familyId, assignedTaskId, s.userId);
@@ -200,6 +209,7 @@ export async function completePresetAsParentAction(input: {
   categoryId: string;
   points: number;
 }): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertParent();
     const onlyChildId = await singleActiveChildId(s.familyId);
@@ -224,9 +234,61 @@ export async function completePresetAsParentAction(input: {
   }
 }
 
+/**
+ * Bulk-delete user-defined tasks from the user-tasks picker. Mirrors
+ * `deleteTaskAction` but for many ids at once. ActivityLog entries from
+ * past completions stay intact (same as single-delete) — only the
+ * TaskDefinition + its AssignedTask rows go away.
+ */
+export async function deleteTasksBulkAction(
+  taskIds: string[],
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const t = getT();
+  try {
+    const s = await assertParent();
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return { ok: false, error: t.errors.validation };
+    }
+    let deleted = 0;
+    for (const id of taskIds) {
+      await deleteTaskDefinition(s.familyId, id);
+      deleted += 1;
+    }
+    revalidate();
+    return { ok: true, deleted };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+/**
+ * Quick-credit for an existing user-defined task. Used by the user-tasks
+ * picker (non-Russian families). Auto-targets the only active child the
+ * same way the preset picker does; multi-child families need to use the
+ * per-task panel instead.
+ */
+export async function creditExistingTaskAsParentAction(
+  taskDefinitionId: string,
+): Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }> {
+  const t = getT();
+  try {
+    const s = await assertParent();
+    const onlyChildId = await singleActiveChildId(s.familyId);
+    if (!onlyChildId) {
+      return { ok: false, error: t.tasks.bulkAssignNeedsSingleChild };
+    }
+    const r = await creditExistingTask(s.familyId, taskDefinitionId, onlyChildId, s.userId);
+    revalidate();
+    return { ok: true, pointsAwarded: r.pointsAwarded };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
 export async function assignTasksBulkAction(
   taskIds: string[],
 ): Promise<{ ok: true; assigned: number } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertParent();
     if (!Array.isArray(taskIds) || taskIds.length === 0) {

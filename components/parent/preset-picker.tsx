@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 // A single preset row prepared server-side: the category name from the
 // preset catalog has already been resolved to a concrete categoryId so the
@@ -53,6 +53,7 @@ export function PresetPicker({
   ) => Promise<{ ok: true; pointsAwarded: number } | { ok: false; error: string }>;
   redirectTo: string;
 }) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

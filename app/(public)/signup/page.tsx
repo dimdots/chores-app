@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { SignupForm } from "./signup-form";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function SignupPage({
 }: {
   searchParams?: { token?: string };
 }) {
+  const t = getT();
   // If the visitor is already logged in elsewhere, send them to their
   // dashboard instead of letting them double-redeem.
   const session = await getSession();

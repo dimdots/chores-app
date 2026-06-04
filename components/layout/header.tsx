@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { LogoutButton } from "./logout-button";
 
@@ -32,6 +32,7 @@ export function Header({
   nav: NavItem[];
   role: "PARENT" | "CHILD";
 }) {
+  const t = useT();
   const pathname = usePathname() ?? "";
   const activeHref = pickActiveHref(nav, pathname);
   return (

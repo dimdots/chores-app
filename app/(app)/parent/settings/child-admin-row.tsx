@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import {
   resetChildPinAction,
   setChildActiveAction,
@@ -20,6 +20,7 @@ type Row = {
 };
 
 export function ChildAdminRow({ row }: { row: Row }) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [pinValue, setPinValue] = useState("");
@@ -62,6 +63,7 @@ export function ChildAdminRow({ row }: { row: Row }) {
   };
 
   const cycleReset = () => {
+        const t = useT();
     setError(null);
     setInfo(null);
     if (!confirm(t.settings.cycleResetHelp)) return;

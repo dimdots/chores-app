@@ -5,11 +5,13 @@ import {
   RewardApprovalCard,
 } from "@/components/parent/approval-card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage() {
+
+  const t = getT();
   const s = await requireParent();
   const { tasks, rewards } = await listAllPendingApprovals(s.familyId);
 

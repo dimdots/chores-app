@@ -10,15 +10,16 @@ import { WeeklyChart } from "@/components/parent/weekly-chart";
 import { ReactionBar } from "@/components/shared/reaction-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { t } from "@/lib/i18n/ru";
-import { formatDateTimeRu } from "@/lib/utils/dates";
+import { getT, getLocale } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/utils/dates";
 import { formatSignedPoints } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 
-const DAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-
 export default async function ParentDashboard() {
+
+  const t = getT();
+  const locale = getLocale();
   const session = await requireParent();
   const data = await getParentDashboardData(session.familyId, session.userId);
 
@@ -99,7 +100,7 @@ export default async function ParentDashboard() {
             return {
               date: p.date,
               points: p.points,
-              label: DAY_LABELS_RU[dow] ?? p.date.slice(5),
+              label: t.app.weekdaysShort[dow] ?? p.date.slice(5),
             };
           });
           return (
@@ -132,8 +133,8 @@ export default async function ParentDashboard() {
                       {r.child ? ` · ${r.child.displayName}` : ""}
                     </span>
                     <span className="text-xs text-slate-500 shrink-0 text-right">
-                      {formatDateTimeRu(r.createdAt)}
-                      {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta)}` : ""}
+                      {formatDateTime(r.createdAt, locale)}
+                      {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta, locale)}` : ""}
                     </span>
                   </div>
                   <ReactionBar

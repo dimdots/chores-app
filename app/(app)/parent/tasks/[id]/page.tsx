@@ -6,11 +6,12 @@ import { TaskForm } from "@/components/parent/task-form";
 import { DeleteTaskCard } from "./delete-task-card";
 import { AssignTaskPanel } from "./assign-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditTaskPage({ params }: { params: { id: string } }) {
+  const t = getT();
   const s = await requireParent();
   const [def, categories, children] = await Promise.all([
     prisma.taskDefinition.findFirst({ where: { id: params.id, familyId: s.familyId } }),

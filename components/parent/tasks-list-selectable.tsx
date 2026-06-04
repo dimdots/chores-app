@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DeleteTaskButton } from "@/components/parent/delete-task-button";
 import { CategoryGroup } from "@/components/shared/category-group";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
 import { assignTasksBulkAction } from "@/app/(app)/parent/tasks/actions";
 
@@ -22,16 +22,19 @@ export type TaskRow = {
   createdByRole: "PARENT" | "CHILD" | null;
 };
 
-function recurrenceLabel(kind: string): string {
+// Pure helper — takes the locale dict as an argument so it can be called
+// from anywhere (not just inside a component) without violating Rules of
+// Hooks. Returns the human-readable recurrence label.
+function recurrenceLabel(kind: string, dict: ReturnType<typeof useT>): string {
   switch (kind) {
     case "DAILY":
-      return t.tasks.recurrenceDaily;
+      return dict.tasks.recurrenceDaily;
     case "WEEKLY":
-      return t.tasks.recurrenceWeekly;
+      return dict.tasks.recurrenceWeekly;
     case "WEEKDAYS":
-      return t.tasks.recurrenceWeekdays;
+      return dict.tasks.recurrenceWeekdays;
     default:
-      return t.tasks.recurrenceNone;
+      return dict.tasks.recurrenceNone;
   }
 }
 
@@ -47,6 +50,8 @@ export function TasksListSelectable({
    */
   canBulkAssign: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -162,11 +167,11 @@ export function TasksListSelectable({
                           ) : null}
                         </div>
                         <p className="text-xs text-slate-500">
-                          {recurrenceLabel(task.recurrenceType)}
+                          {recurrenceLabel(task.recurrenceType, t)}
                         </p>
                       </div>
                       <span className="shrink-0 text-brand-700 font-semibold">
-                        +{formatPoints(task.points)}
+                        +{formatPoints(task.points, locale)}
                       </span>
                     </Link>
                     <DeleteTaskButton taskId={task.id} title={task.title} />

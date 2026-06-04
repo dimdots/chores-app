@@ -1,5 +1,5 @@
 import { canBootstrap } from "@/lib/services/bootstrap";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { SetupForm } from "./setup-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
+
+  const t = getT();
   const allowed = await canBootstrap();
 
   return (

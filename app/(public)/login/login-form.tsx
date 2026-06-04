@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 type Profile = { id: string; name: string; role: "PARENT" | "CHILD" };
 
@@ -16,6 +16,7 @@ function initialsOf(name: string): string {
 }
 
 export function LoginPicker({ profiles }: { profiles: Profile[] }) {
+  const t = useT();
   const router = useRouter();
   const [picked, setPicked] = useState<Profile | null>(null);
   const [pin, setPin] = useState("");
@@ -63,6 +64,8 @@ export function LoginPicker({ profiles }: { profiles: Profile[] }) {
   }
 
   function submit(e: React.FormEvent) {
+    // (Don't call useT() here — hooks can only run during render. We use
+    // the outer-scope `t` captured at the top of LoginPicker.)
     e.preventDefault();
     setError(null);
     if (!/^\d{6}$/.test(pin)) {

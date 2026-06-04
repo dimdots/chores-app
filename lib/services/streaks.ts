@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/db/prisma";
 import { calendarDaysBetween, isoDateLocal, startOfLocalDay } from "@/lib/utils/dates";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Streak rules (MVP):
@@ -60,6 +61,7 @@ export async function updateStreakAfterTaskApproval(
  * Stops once a day has none or when we've checked 365 days.
  */
 export async function calculateCurrentStreak(childId: string, now: Date = new Date()): Promise<number> {
+  const t = getT();
   const todayStart = startOfLocalDay(now);
   // Pull all approved tasks for this child from the last 366 days.
   const from = new Date(todayStart.getTime() - 366 * 24 * 60 * 60 * 1000);

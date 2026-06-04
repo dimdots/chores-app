@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPoints } from "@/lib/utils/format";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 
 export function ChildSummaryCard({
   childId,
@@ -16,13 +18,15 @@ export function ChildSummaryCard({
   level: number;
   streak: number;
 }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <Link href={`/parent/children/${childId}`}>
       <Card className="hover:shadow-float transition-shadow">
         <CardContent>
           <p className="text-sm text-slate-500">{displayName}</p>
           <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
-            {formatPoints(points)}
+            {formatPoints(points, locale)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {t.childDashboard.level} {level} · 🔥 {streak} {t.childDashboard.days}

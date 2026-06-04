@@ -5,6 +5,7 @@ import { isBlocked, recordFailure, recordSuccess } from "./rate-limit";
 import { logEvent } from "@/lib/services/activity-log";
 import { pinLoginSchema } from "@/lib/validators/auth";
 import { LoginError } from "./parent-auth";
+import { setLocaleCookie } from "@/lib/i18n/server";
 
 /**
  * Unified PIN login — works for any user (parent or child) that has a PIN set.
@@ -21,7 +22,7 @@ export async function loginWithPin(
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { childProfile: true },
+    include: { childProfile: true, family: { select: { locale: true } } },
   });
   if (!user || !user.isActive || !user.pinHash) {
     recordFailure(key);
@@ -42,6 +43,7 @@ export async function loginWithPin(
     name: user.name,
     childId,
   });
+  setLocaleCookie(user.family.locale);
   await logEvent({
     familyId: user.familyId,
     actorUserId: user.id,

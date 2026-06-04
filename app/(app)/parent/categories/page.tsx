@@ -1,11 +1,13 @@
 import { requireParent } from "@/lib/auth/permissions";
 import { listCategories } from "@/lib/services/categories";
 import { CategoriesEditor } from "./categories-editor";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentCategoriesPage() {
+
+  const t = getT();
   const s = await requireParent();
   const categories = await listCategories(s.familyId);
   return (

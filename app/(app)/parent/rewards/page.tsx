@@ -5,13 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { t } from "@/lib/i18n/ru";
+import { getT, getLocale } from "@/lib/i18n/server";
 import { formatPoints } from "@/lib/utils/format";
-import { formatDateRu } from "@/lib/utils/dates";
+import { formatDate } from "@/lib/utils/dates";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentRewardsPage() {
+
+  const t = getT();
+  const locale = getLocale();
   const s = await requireParent();
   const rewards = await listRewardDefinitions(s.familyId, { includeInactive: true });
 
@@ -38,14 +41,14 @@ export default async function ParentRewardsPage() {
                       {!r.isActive ? <Badge tone="neutral">{t.rewards.inactive}</Badge> : null}
                     </div>
                     <p className="text-xs text-slate-500">
-                      {r.expiresAt ? `до ${formatDateRu(r.expiresAt)} · ` : ""}
+                      {r.expiresAt ? `${t.rewards.expiresUntilPrefix} ${formatDate(r.expiresAt, locale)} · ` : ""}
                       {r.quantityLimit !== null
                         ? `${r.quantityUsed}/${r.quantityLimit}`
                         : t.rewards.available}
                     </p>
                   </div>
                   <span className="shrink-0 text-brand-700 font-semibold">
-                    {formatPoints(r.cost)}
+                    {formatPoints(r.cost, locale)}
                   </span>
                 </CardContent>
               </Card>

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
 import { requestRewardAction } from "@/app/(app)/child/rewards/actions";
 import type { AvailableRewardView } from "@/lib/services/rewards";
 
 export function RewardTile({ reward }: { reward: AvailableRewardView }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [pending, start] = useTransition();
   // Inline two-step confirm instead of window.confirm(): Chrome silently
@@ -60,7 +62,7 @@ export function RewardTile({ reward }: { reward: AvailableRewardView }) {
           ) : null}
         </div>
         <div className="text-right shrink-0">
-          <p className="text-brand-700 font-semibold">{formatPoints(reward.cost)}</p>
+          <p className="text-brand-700 font-semibold">{formatPoints(reward.cost, locale)}</p>
           <div className="mt-1">
             {confirming ? (
               <div className="flex items-center gap-1">

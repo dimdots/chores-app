@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { addAdjustmentAction } from "./actions";
 
 export function AdjustmentForm({
@@ -13,6 +13,7 @@ export function AdjustmentForm({
 }: {
   kids: Array<{ id: string; displayName: string }>;
 }) {
+  const t = useT();
   const router = useRouter();
   const [childId, setChildId] = useState(kids[0]?.id ?? "");
   const [kind, setKind] = useState<"bonus" | "penalty">("bonus");

@@ -3,11 +3,11 @@ import type { Prisma } from "@prisma/client";
 import { pointsAdjustmentSchema } from "@/lib/validators/points";
 import { logEvent } from "./activity-log";
 import { getLevelForPoints } from "@/lib/utils/leveling";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export class InsufficientPointsError extends Error {
   constructor() {
-    super(t.errors.insufficientPoints);
+    super(getT().errors.insufficientPoints);
     this.name = "InsufficientPointsError";
   }
 }
@@ -50,6 +50,7 @@ export async function applyPointsDelta(
   },
   tx: Prisma.TransactionClient,
 ): Promise<{ newBalance: number; newLevel: number }> {
+  const t = getT();
   const child = await tx.childProfile.findUnique({
     where: { id: args.childId },
     select: {
@@ -98,6 +99,7 @@ export async function applyPointsDelta(
  * PointAdjustment row AND applies the delta inside one transaction.
  */
 export async function addManualAdjustment(input: unknown, actorUserId: string) {
+  const t = getT();
   const parsed = pointsAdjustmentSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { childId, value, reason } = parsed.data;

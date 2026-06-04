@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { addDays } from "date-fns";
 import { isoDateLocal, startOfLocalDay, startOfLocalWeek } from "@/lib/utils/dates";
 import { toCsv } from "@/lib/utils/csv";
+import { getT } from "@/lib/i18n/server";
 
 // All "report" queries that fan out across children take an explicit
 // familyId. Single-child queries trust the caller to have validated the
@@ -15,6 +16,7 @@ export async function getWeeklyPointsSeries(
   childId: string,
   weekStart: Date = startOfLocalWeek(),
 ): Promise<{ childId: string; series: WeeklyPointsPoint[]; total: number }> {
+  const t = getT();
   const end = addDays(weekStart, 7);
   const [tasks, adjustments] = await Promise.all([
     prisma.assignedTask.findMany({

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, getDeviceFamilyId } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { LoginPicker } from "./login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
+
+  const t = getT();
   const session = await getSession();
   if (session) {
     redirect(session.role === "PARENT" ? "/parent/dashboard" : "/child/dashboard");
@@ -53,8 +55,8 @@ export default async function LoginPage() {
                 title={t.login.pickerEmpty}
                 description={
                   hasAnyParent
-                    ? "Войдите по email и задайте PIN в настройках."
-                    : "Войдите по email или используйте ссылку-приглашение."
+                    ? t.login.fallbackEmailWithPin
+                    : t.login.fallbackEmailOrInvite
                 }
               />
             ) : (

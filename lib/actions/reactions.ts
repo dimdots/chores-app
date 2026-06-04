@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { assertSession } from "@/lib/auth/permissions";
 import { toggleReaction, isAllowedReaction } from "@/lib/services/reactions";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 type Res = { ok: true; present: boolean } | { ok: false; error: string };
 
@@ -16,6 +16,7 @@ export async function toggleReactionAction(
   activityLogId: string,
   emoji: string,
 ): Promise<Res> {
+  const t = getT();
   try {
     if (!isAllowedReaction(emoji)) return { ok: false, error: t.errors.validation };
     const s = await assertSession();

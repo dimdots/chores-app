@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { deleteTaskAction } from "@/app/(app)/parent/tasks/actions";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 type Props = {
   taskId: string;
@@ -28,6 +28,7 @@ export function DeleteTaskButton({
   variant = "icon",
   onDeleted,
 }: Props) {
+  const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [confirming, setConfirming] = useState(false);

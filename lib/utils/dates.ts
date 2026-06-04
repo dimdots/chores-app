@@ -1,6 +1,29 @@
 import { fromZonedTime, toZonedTime, format as tzFormat } from "date-fns-tz";
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 import { appConfig } from "@/config/app";
+import type { Locale } from "@/lib/i18n";
+
+// Maps our locale → BCP 47 tag for Intl.
+const localeMap: Record<Locale, string> = { ru: "ru-RU", fr: "fr-FR" };
+
+export function formatDateTime(d: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(localeMap[locale], {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: appConfig.timezone,
+  }).format(d);
+}
+
+export function formatDate(d: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(localeMap[locale], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: appConfig.timezone,
+  }).format(d);
+}
 
 /** Return the start of the local day (in APP_TIMEZONE), as a UTC Date. */
 export function startOfLocalDay(d: Date = new Date()): Date {
@@ -28,19 +51,6 @@ export function startOfLocalWeek(d: Date = new Date()): Date {
   const dow = localWeekday(today); // 0..6, Sun..Sat
   const delta = dow === 0 ? -6 : 1 - dow; // back to Monday
   return addDays(today, delta);
-}
-
-/** Format a date for Russian UI (e.g. "18 апр, 14:30"). */
-export function formatDateTimeRu(d: Date): string {
-  return tzFormat(toZonedTime(d, appConfig.timezone), "d MMM, HH:mm", {
-    timeZone: appConfig.timezone,
-  });
-}
-
-export function formatDateRu(d: Date): string {
-  return tzFormat(toZonedTime(d, appConfig.timezone), "d MMM yyyy", {
-    timeZone: appConfig.timezone,
-  });
 }
 
 /** ISO date (yyyy-mm-dd) in app timezone. */

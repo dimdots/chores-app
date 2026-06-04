@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 type ChildOption = { id: string; name: string };
 
 export function ChildLoginForm({ children }: { children: ChildOption[] }) {
+  const t = useT();
   const router = useRouter();
   const [userId, setUserId] = useState<string>(children[0]?.id ?? "");
   const [pin, setPin] = useState("");
@@ -47,7 +48,7 @@ export function ChildLoginForm({ children }: { children: ChildOption[] }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <Label htmlFor="child">Имя</Label>
+        <Label htmlFor="child">{t.settings.childName}</Label>
         <Select id="child" value={userId} onChange={(e) => setUserId(e.target.value)}>
           {children.map((c) => (
             <option key={c.id} value={c.id}>

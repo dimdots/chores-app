@@ -12,19 +12,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TaskStatusPill, RewardStatusPill } from "@/components/shared/status-pill";
-import { t } from "@/lib/i18n/ru";
-import { formatDateTimeRu, formatDateRu, startOfLocalWeek } from "@/lib/utils/dates";
+import { getT, getLocale } from "@/lib/i18n/server";
+import { formatDateTime, formatDate, startOfLocalWeek } from "@/lib/utils/dates";
 import { formatPoints, formatSignedPoints } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
-
-const DAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 export default async function ChildDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
+  const t = getT();
+  const locale = getLocale();
   const s = await requireParent();
   const child = await prisma.childProfile.findFirst({
     where: { id: params.id, user: { familyId: s.familyId } },
@@ -65,7 +65,7 @@ export default async function ChildDetailPage({
     return {
       date: p.date,
       points: p.points,
-      label: DAY_LABELS_RU[dow] ?? p.date.slice(5),
+      label: t.app.weekdaysShort[dow] ?? p.date.slice(5),
     };
   });
 
@@ -85,11 +85,11 @@ export default async function ChildDetailPage({
           <CardContent>
             <p className="text-sm text-slate-500">{t.parentDashboard.balance}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
-              {formatPoints(child.currentPoints)}
+              {formatPoints(child.currentPoints, locale)}
             </p>
             {!check.consistent ? (
               <p className="text-xs text-danger-700 mt-2">
-                ⚠️ Ledger: {formatPoints(check.recomputed)}
+                ⚠️ Ledger: {formatPoints(check.recomputed, locale)}
               </p>
             ) : null}
           </CardContent>
@@ -111,7 +111,7 @@ export default async function ChildDetailPage({
             <p className="text-sm text-slate-500">{t.childDashboard.streak}</p>
             <p className="mt-1 text-2xl font-semibold">🔥 {child.currentStreak}</p>
             <p className="text-xs text-slate-500 mt-1">
-              {t.app.today}: {formatDateRu(new Date())}
+              {t.app.today}: {formatDate(new Date(), locale)}
             </p>
           </CardContent>
         </Card>
@@ -136,7 +136,7 @@ export default async function ChildDetailPage({
                   <div className="min-w-0">
                     <p className="break-words font-medium">{r.taskDefinition.title}</p>
                     <p className="text-xs text-slate-500 truncate">
-                      {r.taskDefinition.category.name} · {formatDateRu(r.createdAt)}
+                      {r.taskDefinition.category.name} · {formatDate(r.createdAt, locale)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -164,11 +164,11 @@ export default async function ChildDetailPage({
                   <div className="min-w-0">
                     <p className="break-words font-medium">{r.reward.title}</p>
                     <p className="text-xs text-slate-500 truncate">
-                      {formatDateRu(r.requestedAt)}
+                      {formatDate(r.requestedAt, locale)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-500">{formatPoints(r.costAtRequest)}</span>
+                    <span className="text-slate-500">{formatPoints(r.costAtRequest, locale)}</span>
                     <RewardStatusPill status={r.status} />
                   </div>
                 </li>
@@ -198,8 +198,8 @@ export default async function ChildDetailPage({
                       ) : null}
                     </span>
                     <span className="text-xs text-slate-500 shrink-0 text-right">
-                      {formatDateTimeRu(r.createdAt)}
-                      {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta)}` : ""}
+                      {formatDateTime(r.createdAt, locale)}
+                      {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta, locale)}` : ""}
                     </span>
                   </li>
                 );

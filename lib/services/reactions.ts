@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 // The shared-trust pivot (2026-04-19) replaces the approval gate with
 // pure-positive reactions.
@@ -22,6 +22,7 @@ export async function toggleReaction(input: {
   userId: string;
   emoji: string;
 }): Promise<{ present: boolean }> {
+  const t = getT();
   if (!isAllowedReaction(input.emoji)) throw new Error(t.errors.validation);
 
   const log = await prisma.activityLog.findFirst({

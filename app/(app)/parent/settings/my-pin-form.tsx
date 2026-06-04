@@ -3,10 +3,11 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { setMyPinAction } from "./actions";
 
 export function MyPinForm({ hasPin }: { hasPin: boolean }) {
+  const t = useT();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);

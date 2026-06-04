@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { assertChild } from "@/lib/auth/permissions";
 import { requestReward } from "@/lib/services/rewards";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export async function requestRewardAction(
   rewardId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const t = getT();
   try {
     const s = await assertChild();
     await requestReward(s.familyId, { rewardId }, s.childId, s.userId);

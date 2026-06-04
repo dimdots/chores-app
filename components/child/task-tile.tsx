@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TaskStatusPill } from "@/components/shared/status-pill";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
 import { markTaskCompleteAction } from "@/app/(app)/child/tasks/actions";
 
@@ -19,6 +19,8 @@ export type ChildTaskTileData = {
 };
 
 export function TaskTile({ task }: { task: ChildTaskTileData }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -41,7 +43,7 @@ export function TaskTile({ task }: { task: ChildTaskTileData }) {
           ) : null}
         </div>
         <div className="text-right shrink-0">
-          <p className="text-brand-700 font-semibold">+{formatPoints(task.points)}</p>
+          <p className="text-brand-700 font-semibold">+{formatPoints(task.points, locale)}</p>
           <div className="mt-1">
             {task.status === "ASSIGNED" ? (
               <Button onClick={onDone} disabled={pending} size="sm" variant="success">

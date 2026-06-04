@@ -5,6 +5,7 @@ import { isBlocked, recordFailure, recordSuccess } from "./rate-limit";
 import { logEvent } from "@/lib/services/activity-log";
 import { childLoginSchema } from "@/lib/validators/auth";
 import { LoginError } from "./parent-auth";
+import { setLocaleCookie } from "@/lib/i18n/server";
 
 /**
  * Child login with (userId, pin). We expose a list of child users on the
@@ -21,7 +22,7 @@ export async function loginChild(input: unknown): Promise<{ childId: string; nam
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { childProfile: true },
+    include: { childProfile: true, family: { select: { locale: true } } },
   });
   if (!user || user.role !== "CHILD" || !user.isActive || !user.pinHash || !user.childProfile) {
     recordFailure(key);
@@ -40,6 +41,7 @@ export async function loginChild(input: unknown): Promise<{ childId: string; nam
     childId: user.childProfile.id,
     name: user.name,
   });
+  setLocaleCookie(user.family.locale);
   await logEvent({
     familyId: user.familyId,
     actorUserId: user.id,

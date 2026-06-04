@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import type { SessionPayload } from "@/types/session";
 import { startOfLocalDay } from "@/lib/utils/dates";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export type ExportAuth =
   | { session: SessionPayload; response: null }
@@ -14,6 +14,7 @@ export type ExportAuth =
  * with (401/403) when auth fails.
  */
 export async function requireParentSessionForExport(): Promise<ExportAuth> {
+  const t = getT();
   const s = await getSession();
   if (!s) {
     return {

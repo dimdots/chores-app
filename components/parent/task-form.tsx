@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import {
   createTaskAction,
   updateTaskAction,
@@ -32,6 +32,7 @@ export function TaskForm({
   categories: Category[];
   initial?: TaskFormInitial;
 }) {
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState({
     title: initial?.title ?? "",

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteTaskButton } from "@/components/parent/delete-task-button";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 /**
  * Danger-zone card at the bottom of the task edit page. Splits the hard
@@ -17,6 +17,7 @@ export function DeleteTaskCard({
   taskId: string;
   title: string;
 }) {
+  const t = useT();
   const router = useRouter();
   return (
     <Card>

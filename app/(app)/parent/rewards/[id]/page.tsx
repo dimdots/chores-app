@@ -4,11 +4,12 @@ import { prisma } from "@/lib/db/prisma";
 import { RewardForm } from "@/components/parent/reward-form";
 import { ArchiveRewardButtons } from "./archive-buttons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditRewardPage({ params }: { params: { id: string } }) {
+  const t = getT();
   const s = await requireParent();
   const reward = await prisma.reward.findFirst({
     where: { id: params.id, familyId: s.familyId },

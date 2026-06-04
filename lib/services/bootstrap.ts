@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { bootstrapSchema } from "@/lib/validators/auth";
 import { seedDefaultCategoriesIfEmpty } from "@/lib/services/categories";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 function constantTimeEquals(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -19,6 +19,7 @@ export async function canBootstrap(): Promise<boolean> {
 }
 
 export async function bootstrapFirstParent(input: unknown): Promise<{ userId: string }> {
+  const t = getT();
   const parsed = bootstrapSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
 

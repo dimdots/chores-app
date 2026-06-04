@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { addParentAction } from "./actions";
 
 export function AddParentForm() {
+
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function AddParentForm() {
   return (
     <form onSubmit={submit} className="space-y-3">
       <div>
-        <Label htmlFor="parent-name">Имя</Label>
+        <Label htmlFor="parent-name">{t.settings.parentName}</Label>
         <Input
           id="parent-name"
           required

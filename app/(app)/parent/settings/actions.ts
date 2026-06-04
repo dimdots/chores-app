@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { assertParent } from "@/lib/auth/permissions";
 import { createChild, setChildActive, resetCycle } from "@/lib/services/children";
@@ -9,7 +10,10 @@ import { setOwnPin } from "@/lib/auth/pin-login";
 import { addManualAdjustment } from "@/lib/services/points";
 import { assertChildInFamily } from "@/lib/auth/family-scope";
 import { parentCreateSchema, setPinSchema } from "@/lib/validators/auth";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
+import { LOCALE_COOKIE_NAME } from "@/lib/i18n/server";
+import { isLocale } from "@/lib/i18n";
+import { prisma } from "@/lib/db/prisma";
 
 type Res = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -25,6 +29,7 @@ export async function addChildAction(input: {
   displayName?: string;
   pin: string;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const c = await createChild({ ...input, familyId: s.familyId });
@@ -39,6 +44,7 @@ export async function setChildActiveAction(input: {
   childId: string;
   active: boolean;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await setChildActive(s.familyId, input.childId, input.active);
@@ -54,6 +60,7 @@ export async function addParentAction(input: {
   email: string;
   password: string;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const parsed = parentCreateSchema.safeParse(input);
@@ -72,6 +79,7 @@ export async function resetChildPinAction(input: {
   childUserId: string;
   newPin: string;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await resetChildPin({
@@ -88,6 +96,7 @@ export async function resetChildPinAction(input: {
 }
 
 export async function resetCycleAction(input: { childId: string }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await resetCycle(s.familyId, input.childId, s.userId);
@@ -99,6 +108,7 @@ export async function resetCycleAction(input: { childId: string }): Promise<Res>
 }
 
 export async function setMyPinAction(input: { pin: string }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const parsed = setPinSchema.safeParse(input);
@@ -122,6 +132,7 @@ export async function addAdjustmentAction(input: {
   value: number;
   reason: string;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     // Defense: addManualAdjustment doesn't take familyId (the childId carries
@@ -130,6 +141,41 @@ export async function addAdjustmentAction(input: {
     await assertChildInFamily(input.childId, s.familyId);
     await addManualAdjustment(input, s.userId);
     revalidate();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };
+  }
+}
+
+/**
+ * Switch the family's UI language. Updates both:
+ *   - `Family.locale` (durable, applies on next login from any device)
+ *   - `fcr_locale` cookie (immediate, scoped to this device)
+ * Parent-only.
+ */
+export async function setLocaleAction(locale: string): Promise<Res> {
+  const t = getT();
+  try {
+    const s = await assertParent();
+    if (!isLocale(locale)) {
+      return { ok: false, error: t.errors.validation };
+    }
+    await prisma.family.update({
+      where: { id: s.familyId },
+      data: { locale },
+    });
+    cookies().set({
+      name: LOCALE_COOKIE_NAME,
+      value: locale,
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    // Revalidate every authenticated path so the new locale shows up immediately
+    // without a hard refresh.
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : t.errors.unknown };

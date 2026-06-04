@@ -8,12 +8,16 @@ import { AddParentForm } from "./add-parent-form";
 import { ChildAdminRow } from "./child-admin-row";
 import { AdjustmentForm } from "./adjustment-form";
 import { MyPinForm } from "./my-pin-form";
+import { LanguagePicker } from "./language-picker";
 import { formatPoints } from "@/lib/utils/format";
-import { t } from "@/lib/i18n/ru";
+import { getT, getLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParentSettingsPage() {
+
+  const t = getT();
+  const locale = getLocale();
   const session = await requireParent();
   const [children, parents, me] = await Promise.all([
     listChildren(session.familyId),
@@ -52,6 +56,15 @@ export default async function ParentSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>{t.settings.languageTitle}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LanguagePicker />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t.points.adjustTitle}</CardTitle>
         </CardHeader>
         <CardContent>
@@ -72,7 +85,7 @@ export default async function ParentSettingsPage() {
                 <li key={c.id} className="pt-4 first:pt-0">
                   <div className="flex items-center justify-between text-sm text-slate-500 mb-2">
                     <span>
-                      {t.parentDashboard.balance}: {formatPoints(c.currentPoints)}
+                      {t.parentDashboard.balance}: {formatPoints(c.currentPoints, locale)}
                     </span>
                     <span>
                       {t.childDashboard.level} {c.currentLevel} · 🔥 {c.currentStreak}

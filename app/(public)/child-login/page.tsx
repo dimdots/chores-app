@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, getDeviceFamilyId } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 import { ChildLoginForm } from "./child-login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 export const dynamic = "force-dynamic";
 
 export default async function ChildLoginPage() {
+
+  const t = getT();
   const session = await getSession();
   if (session) {
     redirect(session.role === "PARENT" ? "/parent/dashboard" : "/child/dashboard");
@@ -35,7 +37,7 @@ export default async function ChildLoginPage() {
             {children.length === 0 ? (
               <EmptyState
                 title={t.settings.noChildren}
-                description="Родитель сначала должен создать профиль ребёнка."
+                description={t.login.childNoChildrenYet}
               />
             ) : (
               <ChildLoginForm children={children} />

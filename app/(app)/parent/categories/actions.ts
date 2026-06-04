@@ -7,7 +7,7 @@ import {
   updateCategory,
   archiveCategory,
 } from "@/lib/services/categories";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 type Res = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -21,6 +21,7 @@ export async function createCategoryAction(input: {
   name: string;
   sortOrder?: number;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     const c = await createCategory(s.familyId, input);
@@ -37,6 +38,7 @@ export async function updateCategoryAction(input: {
   sortOrder?: number;
   isActive?: boolean;
 }): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await updateCategory(s.familyId, input);
@@ -48,6 +50,7 @@ export async function updateCategoryAction(input: {
 }
 
 export async function archiveCategoryAction(id: string): Promise<Res> {
+  const t = getT();
   try {
     const s = await assertParent();
     await archiveCategory(s.familyId, id);

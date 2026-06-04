@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { addChildAction } from "./actions";
 
 export function AddChildForm() {
+
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState({ name: "", displayName: "", pin: "" });
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export function AddChildForm() {
   return (
     <form onSubmit={submit} className="space-y-3">
       <div>
-        <Label htmlFor="child-name">Имя</Label>
+        <Label htmlFor="child-name">{t.settings.childName}</Label>
         <Input
           id="child-name"
           value={state.name}
@@ -48,7 +50,7 @@ export function AddChildForm() {
       </div>
       <div>
         <Label htmlFor="child-display">
-          Отображаемое имя <span className="text-slate-400">({t.app.optional})</span>
+          {t.settings.childDisplayName} <span className="text-slate-400">({t.app.optional})</span>
         </Label>
         <Input
           id="child-display"

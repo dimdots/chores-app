@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CategoryGroup } from "@/components/shared/category-group";
 import { TaskStatusPill } from "@/components/shared/status-pill";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 import { formatPoints } from "@/lib/utils/format";
 import { markTaskCompleteByParentAction } from "@/app/(app)/parent/tasks/actions";
 
@@ -37,6 +37,8 @@ export function ChildTodayTasks({
   childName: string;
   tasks: ParentTodayTaskRow[];
 }) {
+  const t = useT();
+  const locale = useLocale();
   const grouped = useMemo(() => {
     const map = new Map<string, ParentTodayTaskRow[]>();
     for (const task of tasks) {
@@ -78,6 +80,8 @@ export function ChildTodayTasks({
 }
 
 function ParentTaskRow({ task }: { task: ParentTodayTaskRow }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +107,7 @@ function ParentTaskRow({ task }: { task: ParentTodayTaskRow }) {
         </div>
         <div className="text-right shrink-0">
           <p className="text-brand-700 font-semibold">
-            +{formatPoints(task.points)}
+            +{formatPoints(task.points, locale)}
           </p>
           <div className="mt-1">
             {task.status === "ASSIGNED" ? (

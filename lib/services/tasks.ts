@@ -9,7 +9,7 @@ import { logEvent } from "./activity-log";
 import { startOfLocalDay, localWeekday } from "@/lib/utils/dates";
 import { applyPointsDelta } from "./points";
 import { updateStreakAfterTaskApproval } from "./streaks";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 // ---------- Definitions ----------
 
@@ -18,6 +18,7 @@ export async function createTaskDefinition(
   input: unknown,
   actorUserId: string,
 ) {
+  const t = getT();
   const parsed = taskDefinitionCreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const data = parsed.data;
@@ -49,6 +50,7 @@ export async function createTaskDefinition(
 }
 
 export async function updateTaskDefinition(familyId: string, input: unknown) {
+  const t = getT();
   const parsed = taskDefinitionUpdateSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { id, recurrenceDays, ...rest } = parsed.data;
@@ -69,6 +71,7 @@ export async function updateTaskDefinition(familyId: string, input: unknown) {
 }
 
 export async function archiveTaskDefinition(familyId: string, id: string) {
+  const t = getT();
   const res = await prisma.taskDefinition.updateMany({
     where: { id, familyId },
     data: { isActive: false },
@@ -78,6 +81,7 @@ export async function archiveTaskDefinition(familyId: string, id: string) {
 }
 
 export async function restoreTaskDefinition(familyId: string, id: string) {
+  const t = getT();
   const res = await prisma.taskDefinition.updateMany({
     where: { id, familyId },
     data: { isActive: true },
@@ -92,6 +96,7 @@ export async function restoreTaskDefinition(familyId: string, id: string) {
  * historical record of points earned (balances were already applied).
  */
 export async function deleteTaskDefinition(familyId: string, id: string) {
+  const t = getT();
   const def = await prisma.taskDefinition.findFirst({
     where: { id, familyId },
     select: { id: true },
@@ -106,6 +111,7 @@ export async function deleteTaskDefinition(familyId: string, id: string) {
 // ---------- Assignments ----------
 
 export async function assignTaskToChild(familyId: string, input: unknown) {
+  const t = getT();
   const parsed = assignTaskSchema.safeParse(input);
   if (!parsed.success) throw new Error(t.errors.validation);
   const { taskDefinitionId, childId, dueDate, scheduledDate } = parsed.data;
@@ -223,6 +229,7 @@ export async function markTaskCompletedByChild(
   childId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   const assigned = await prisma.assignedTask.findUnique({
     where: { id: assignedTaskId },
     include: { taskDefinition: true },
@@ -241,12 +248,66 @@ export async function markTaskCompletedByParent(
   assignedTaskId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   const assigned = await prisma.assignedTask.findFirst({
     where: { id: assignedTaskId, taskDefinition: { familyId } },
     include: { taskDefinition: true },
   });
   if (!assigned) throw new Error(t.errors.taskNotFound);
   return _completeAssignedTask(assigned, actorUserId);
+}
+
+/**
+ * Credit an existing TaskDefinition once: spins up an AssignedTask in
+ * APPROVED, applies the points delta, and bumps the streak — without
+ * creating a new TaskDefinition (unlike `createAndCompleteAdHocTask`).
+ * Used by the user-tasks picker's "Done" button so reusing a recurring or
+ * one-off task you've already defined doesn't pollute the catalog.
+ */
+export async function creditExistingTask(
+  familyId: string,
+  taskDefinitionId: string,
+  childId: string,
+  actorUserId: string,
+) {
+  const t = getT();
+  const def = await prisma.taskDefinition.findFirst({
+    where: { id: taskDefinitionId, familyId, isActive: true },
+  });
+  if (!def) throw new Error(t.errors.taskNotFound);
+  const child = await prisma.childProfile.findFirst({
+    where: { id: childId, user: { familyId } },
+  });
+  if (!child) throw new Error(t.errors.childNotFound);
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const assigned = await tx.assignedTask.create({
+      data: {
+        taskDefinitionId: def.id,
+        childId,
+        scheduledDate: null,
+        status: "APPROVED",
+        completionRequestedAt: now,
+        approvedAt: now,
+        approvedById: actorUserId,
+        pointsAwarded: def.points,
+      },
+    });
+    await applyPointsDelta(
+      {
+        childId,
+        delta: def.points,
+        actorUserId,
+        eventType: "TASK_APPROVED",
+        referenceType: "AssignedTask",
+        referenceId: assigned.id,
+      },
+      tx,
+    );
+    await updateStreakAfterTaskApproval(childId, now, tx);
+    return { assignedTaskId: assigned.id, pointsAwarded: def.points };
+  });
 }
 
 /**
@@ -258,6 +319,7 @@ export async function createAndCompleteAdHocTask(
   childId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   const child = await prisma.childProfile.findFirst({
     where: { id: childId, user: { familyId } },
   });
@@ -315,6 +377,7 @@ async function _completeAssignedTask(
   assigned: { id: string; childId: string; status: string; taskDefinition: { points: number } },
   actorUserId: string,
 ) {
+  const t = getT();
   if (assigned.status !== "ASSIGNED") throw new Error(t.errors.alreadyProcessed);
   const pts = assigned.taskDefinition.points;
   const now = new Date();
@@ -353,6 +416,7 @@ export async function approveTask(
   assignedTaskId: string,
   actorUserId: string,
 ) {
+  const t = getT();
   return prisma.$transaction(async (tx) => {
     const assigned = await tx.assignedTask.findFirst({
       where: { id: assignedTaskId, taskDefinition: { familyId } },
@@ -395,6 +459,7 @@ export async function rejectTask(
   reason: string | null,
   actorUserId: string,
 ) {
+  const t = getT();
   return prisma.$transaction(async (tx) => {
     const assigned = await tx.assignedTask.findFirst({
       where: { id: assignedTaskId, taskDefinition: { familyId } },

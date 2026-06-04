@@ -7,7 +7,7 @@ import {
   approveRewardRequest,
   rejectRewardRequest,
 } from "@/lib/services/rewards";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 function invalidate() {
   revalidatePath("/parent/dashboard");
@@ -19,6 +19,7 @@ function invalidate() {
 }
 
 export async function approveTaskAction(assignedTaskId: string) {
+  const t = getT();
   try {
     const s = await assertParent();
     await approveTask(s.familyId, assignedTaskId, s.userId);
@@ -30,6 +31,7 @@ export async function approveTaskAction(assignedTaskId: string) {
 }
 
 export async function rejectTaskAction(assignedTaskId: string, reason: string | null) {
+  const t = getT();
   try {
     const s = await assertParent();
     await rejectTask(s.familyId, assignedTaskId, reason, s.userId);
@@ -41,6 +43,7 @@ export async function rejectTaskAction(assignedTaskId: string, reason: string | 
 }
 
 export async function approveRewardRequestAction(requestId: string) {
+  const t = getT();
   try {
     const s = await assertParent();
     await approveRewardRequest(s.familyId, requestId, s.userId);
@@ -52,6 +55,7 @@ export async function approveRewardRequestAction(requestId: string) {
 }
 
 export async function rejectRewardRequestAction(requestId: string, reason: string | null) {
+  const t = getT();
   try {
     const s = await assertParent();
     await rejectRewardRequest(s.familyId, requestId, reason, s.userId);

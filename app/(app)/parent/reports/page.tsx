@@ -10,10 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeeklyChart } from "@/components/parent/weekly-chart";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { t } from "@/lib/i18n/ru";
+import { getT, getLocale } from "@/lib/i18n/server";
 import {
-  formatDateTimeRu,
-  formatDateRu,
+  formatDateTime,
+  formatDate,
   isoDateLocal,
   startOfLocalDay,
   startOfLocalWeek,
@@ -22,8 +22,6 @@ import { formatPoints, formatSignedPoints } from "@/lib/utils/format";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-
-const DAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 function parseDate(input?: string): Date | undefined {
   if (!input) return undefined;
@@ -37,6 +35,8 @@ export default async function ReportsPage({
 }: {
   searchParams?: { childId?: string; from?: string; to?: string };
 }) {
+  const t = getT();
+  const locale = getLocale();
   const s = await requireParent();
   const childId = searchParams?.childId?.trim() || "";
   const from = parseDate(searchParams?.from);
@@ -140,7 +140,7 @@ export default async function ReportsPage({
               return {
                 date: p.date,
                 points: p.points,
-                label: DAY_LABELS_RU[dow] ?? p.date.slice(5),
+                label: t.app.weekdaysShort[dow] ?? p.date.slice(5),
               };
             });
             return (
@@ -191,7 +191,7 @@ export default async function ReportsPage({
                   <div className="min-w-0">
                     <p className="break-words font-medium">{r.reward.title}</p>
                     <p className="text-xs text-slate-500 truncate">
-                      {r.child.displayName} · {formatDateRu(r.requestedAt)} ·{" "}
+                      {r.child.displayName} · {formatDate(r.requestedAt, locale)} ·{" "}
                       {r.status === "PENDING"
                         ? t.rewards.pending
                         : r.status === "APPROVED"
@@ -199,7 +199,7 @@ export default async function ReportsPage({
                           : t.tasks.status.REJECTED}
                     </p>
                   </div>
-                  <span className="shrink-0 text-slate-500">{formatPoints(r.costAtRequest)}</span>
+                  <span className="shrink-0 text-slate-500">{formatPoints(r.costAtRequest, locale)}</span>
                 </li>
               ))}
             </ul>
@@ -223,8 +223,8 @@ export default async function ReportsPage({
                     {r.child ? ` · ${r.child.displayName}` : ""}
                   </span>
                   <span className="text-xs text-slate-500 shrink-0 text-right">
-                    {formatDateTimeRu(r.createdAt)}
-                    {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta)}` : ""}
+                    {formatDateTime(r.createdAt, locale)}
+                    {r.pointsDelta !== 0 ? ` · ${formatSignedPoints(r.pointsDelta, locale)}` : ""}
                   </span>
                 </li>
               ))}

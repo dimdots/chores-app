@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import {
   createRewardAction,
   updateRewardAction,
@@ -26,6 +26,7 @@ function dateToInput(d?: Date | null): string {
 }
 
 export function RewardForm({ initial }: { initial?: RewardFormInitial }) {
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState({
     title: initial?.title ?? "",

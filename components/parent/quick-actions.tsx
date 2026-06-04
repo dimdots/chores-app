@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 
 export function QuickActions() {
+  const t = useT();
   return (
     <Card>
       <CardHeader>

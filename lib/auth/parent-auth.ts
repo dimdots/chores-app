@@ -4,6 +4,7 @@ import { setSessionCookie, clearSessionCookie } from "./session";
 import { isBlocked, recordFailure, recordSuccess } from "./rate-limit";
 import { logEvent } from "@/lib/services/activity-log";
 import { parentLoginSchema } from "@/lib/validators/auth";
+import { setLocaleCookie } from "@/lib/i18n/server";
 
 export class LoginError extends Error {
   constructor(
@@ -28,7 +29,10 @@ export async function loginParent(input: unknown): Promise<{ userId: string; nam
   const key = `parent:${email}`;
   if (isBlocked(key)) throw new LoginError("Too many attempts", "BLOCKED");
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { family: { select: { locale: true } } },
+  });
   if (!user || user.role !== "PARENT" || !user.isActive || !user.passwordHash) {
     recordFailure(key);
     throw new LoginError("Invalid credentials", "INVALID");
@@ -45,6 +49,9 @@ export async function loginParent(input: unknown): Promise<{ userId: string; nam
     role: "PARENT",
     name: user.name,
   });
+  // Sync the device's locale cookie with the family's chosen locale so the
+  // picker and pre-login pages here show the right language next time.
+  setLocaleCookie(user.family.locale);
   await logEvent({
     familyId: user.familyId,
     actorUserId: user.id,

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { t } from "@/lib/i18n/ru";
+import { useT } from "@/lib/i18n/client";
 import { createChildTaskAction } from "../actions";
 
 type Category = { id: string; name: string };
@@ -13,15 +13,16 @@ type Recurrence = "NONE" | "DAILY" | "WEEKLY" | "WEEKDAYS";
 
 const POINT_PRESETS = [5, 10, 15, 25];
 
-const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
-  { value: "NONE", label: t.tasks.recurrenceNone },
-  { value: "DAILY", label: t.tasks.recurrenceDaily },
-  { value: "WEEKLY", label: t.tasks.recurrenceWeekly },
-  { value: "WEEKDAYS", label: t.tasks.recurrenceWeekdays },
-];
-
 export function ChildTaskForm({ categories }: { categories: Category[] }) {
+  const t = useT();
   const router = useRouter();
+  // Built inside the component so labels follow the active locale.
+  const recurrenceOptions: { value: Recurrence; label: string }[] = [
+    { value: "NONE", label: t.tasks.recurrenceNone },
+    { value: "DAILY", label: t.tasks.recurrenceDaily },
+    { value: "WEEKLY", label: t.tasks.recurrenceWeekly },
+    { value: "WEEKDAYS", label: t.tasks.recurrenceWeekdays },
+  ];
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [points, setPoints] = useState<number>(POINT_PRESETS[1] ?? 10);
@@ -129,7 +130,7 @@ export function ChildTaskForm({ categories }: { categories: Category[] }) {
       <div>
         <Label>{t.tasks.recurrence}</Label>
         <div className="flex flex-wrap gap-2">
-          {RECURRENCE_OPTIONS.map((opt) => {
+          {recurrenceOptions.map((opt) => {
             const active = recurrenceType === opt.value;
             return (
               <button

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { t } from "@/lib/i18n/ru";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Defense-in-depth: confirm a child profile belongs to the caller's family.
@@ -12,6 +12,7 @@ export async function assertChildInFamily(
   childId: string,
   familyId: string,
 ): Promise<void> {
+  const t = getT();
   const child = await prisma.childProfile.findFirst({
     where: { id: childId, user: { familyId } },
     select: { id: true },
@@ -28,6 +29,7 @@ export async function assertActivityLogInFamily(
   activityLogId: string,
   familyId: string,
 ): Promise<void> {
+  const t = getT();
   const log = await prisma.activityLog.findFirst({
     where: { id: activityLogId, familyId },
     select: { id: true },

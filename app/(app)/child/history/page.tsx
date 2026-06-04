@@ -4,13 +4,16 @@ import { listChildRewardHistory } from "@/lib/services/rewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskStatusPill, RewardStatusPill } from "@/components/shared/status-pill";
-import { t } from "@/lib/i18n/ru";
-import { formatDateTimeRu } from "@/lib/utils/dates";
+import { getT, getLocale } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/utils/dates";
 import { formatSignedPoints } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChildHistory() {
+
+  const t = getT();
+  const locale = getLocale();
   const s = await requireChild();
   const [tasks, rewards] = await Promise.all([
     listChildTaskHistory(s.childId, 50),
@@ -37,12 +40,12 @@ export default async function ChildHistory() {
                       {task.taskDefinition.title}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {task.approvedAt ? formatDateTimeRu(task.approvedAt) : ""}
+                      {task.approvedAt ? formatDateTime(task.approvedAt, locale) : ""}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-brand-700 font-medium">
-                      {formatSignedPoints(task.pointsAwarded)}
+                      {formatSignedPoints(task.pointsAwarded, locale)}
                     </p>
                     <TaskStatusPill status={task.status} />
                   </div>
@@ -69,13 +72,13 @@ export default async function ChildHistory() {
                       {r.reward.title}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {formatDateTimeRu(r.requestedAt)}
+                      {formatDateTime(r.requestedAt, locale)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-slate-700">
                       {r.status === "APPROVED"
-                        ? formatSignedPoints(-r.costAtRequest)
+                        ? formatSignedPoints(-r.costAtRequest, locale)
                         : `${r.costAtRequest} ${t.app.pointsShort}`}
                     </p>
                     <RewardStatusPill status={r.status} />

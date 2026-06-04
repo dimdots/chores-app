@@ -1,5 +1,7 @@
+"use client";
+
 import { Card } from "@/components/ui/card";
-import { t } from "@/lib/i18n/ru";
+import { useT, useLocale } from "@/lib/i18n/client";
 import { pluralizePoints } from "@/lib/utils/format";
 
 export function PointsHero({
@@ -13,6 +15,8 @@ export function PointsHero({
   level: number;
   streak: number;
 }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <Card className="bg-gradient-to-br from-brand-500 to-brand-700 text-white border-0 shadow-float">
       <div className="p-6">
@@ -21,7 +25,7 @@ export function PointsHero({
         </p>
         <div className="mt-2 flex items-end gap-2">
           <span className="text-5xl font-semibold leading-none tabular-nums">{points}</span>
-          <span className="text-brand-100 pb-1">{pluralizePoints(points)}</span>
+          <span className="text-brand-100 pb-1">{pluralizePoints(points, locale)}</span>
         </div>
         <div className="mt-4 flex items-center gap-3 text-sm">
           <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1">
