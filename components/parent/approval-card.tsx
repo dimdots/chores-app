@@ -41,14 +41,19 @@ export function TaskApprovalCard({ row }: { row: TaskApprovalRow }) {
   const [pending, start] = useTransition();
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function decide(kind: "approve" | "reject") {
+    setError(null);
     start(async () => {
       const res =
         kind === "approve"
           ? await approveTaskAction(row.id)
           : await rejectTaskAction(row.id, reason || null);
-      if (!res.ok) alert(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
   }
@@ -104,6 +109,7 @@ export function TaskApprovalCard({ row }: { row: TaskApprovalRow }) {
             </Button>
           </div>
         )}
+        {error ? <p className="mt-2 text-xs text-danger-700">{error}</p> : null}
       </CardContent>
     </Card>
   );
@@ -116,14 +122,19 @@ export function RewardApprovalCard({ row }: { row: RewardApprovalRow }) {
   const [pending, start] = useTransition();
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function decide(kind: "approve" | "reject") {
+    setError(null);
     start(async () => {
       const res =
         kind === "approve"
           ? await approveRewardRequestAction(row.id)
           : await rejectRewardRequestAction(row.id, reason || null);
-      if (!res.ok) alert(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
   }
@@ -178,6 +189,7 @@ export function RewardApprovalCard({ row }: { row: RewardApprovalRow }) {
             </Button>
           </div>
         )}
+        {error ? <p className="mt-2 text-xs text-danger-700">{error}</p> : null}
       </CardContent>
     </Card>
   );

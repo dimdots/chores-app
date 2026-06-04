@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,16 @@ export function TaskTile({ task }: { task: ChildTaskTileData }) {
   const locale = useLocale();
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function onDone() {
+    setError(null);
     start(async () => {
       const res = await markTaskCompleteAction(task.id);
-      if (!res.ok) alert(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
   }
@@ -41,6 +46,7 @@ export function TaskTile({ task }: { task: ChildTaskTileData }) {
           {task.status === "REJECTED" && task.rejectionReason ? (
             <p className="text-xs text-danger-700 mt-1">{task.rejectionReason}</p>
           ) : null}
+          {error ? <p className="text-xs text-danger-700 mt-1">{error}</p> : null}
         </div>
         <div className="text-right shrink-0">
           <p className="text-brand-700 font-semibold">+{formatPoints(task.points, locale)}</p>
